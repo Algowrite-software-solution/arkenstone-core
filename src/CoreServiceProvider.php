@@ -2,8 +2,11 @@
 
 namespace Arkenstone\Core;
 
+
 use Arkenstone\Core\Feature1;
 use Arkenstone\Core\Services\UtilityService;
+use Arkenstone\Core\Support\Event;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\ServiceProvider;
 
 class CoreServiceProvider extends ServiceProvider
@@ -21,11 +24,14 @@ class CoreServiceProvider extends ServiceProvider
         });
     }
 
-    public function boot(): void
+    public function boot(Dispatcher $dispatcher): void
     {
         $this->publishes([
             __DIR__ . '/../config/arkenstone.php' => config_path('arkenstone.php'),
         ], 'arkenstone-config');
+
+        
+        Event::setDispatcher($dispatcher); // attache the event to the app
     }
 }
 

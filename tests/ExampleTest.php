@@ -26,7 +26,7 @@ class ExampleTest extends TestCase
         $this->assertIsString($pkg->generateRandomString());
         
         $pkg = app()->make('utility');
-        $this->assertEquals("Arkenstone Test",$pkg->getName());
+        $this->assertEquals("Arkenstone Test`",$pkg->getName());
     }
 }
 
