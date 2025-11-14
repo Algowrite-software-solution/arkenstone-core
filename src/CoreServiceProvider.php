@@ -2,8 +2,7 @@
 
 namespace Arkenstone\Core;
 
-
-use Arkenstone\Core\Feature1;
+use Arkenstone\Core\ECommerce\Product\Provider\ProductServiceProvider;
 use Arkenstone\Core\Services\UtilityService;
 use Arkenstone\Core\Support\Event;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -15,9 +14,7 @@ class CoreServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__ . '/../config/arkenstone.php', 'arkenstone');
 
-        $this->app->singleton('arkenstone', function () {
-            return new Feature1();
-        });
+        $this->app->register(ProductServiceProvider::class);
         
         $this->app->singleton('utility', function () {
             return new UtilityService();
