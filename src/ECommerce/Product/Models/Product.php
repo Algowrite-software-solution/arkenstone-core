@@ -23,48 +23,48 @@ class Product extends Model
     ];
 
 
-    // /**
-    //  * Get the brand that owns the product.
-    //  */
-    // public function brand(): BelongsTo
-    // {
-    //     return $this->belongsTo(Brand::class);
-    // }
+    /**
+     * Get the brand that owns the product.
+     */
+    public function brand(): BelongsTo
+    {
+        return $this->belongsTo(Brand::class);
+    }
 
-    // /**
-    //  * Get the categories that belong to the product.
-    //  */
-    // public function categories(): BelongsToMany
-    // {
-    //     return $this->belongsToMany(Category::class, 'product_categories');
-    // }
+    /**
+     * Get the categories that belong to the product.
+     */
+    public function categories(): BelongsToMany
+    {
+        return $this->belongsToMany(Category::class, 'product_categories');
+    }
 
 
-    // /**
-    //  * Get the images for the product.
-    //  */
-    // public function images(): HasMany
-    // {
-    //     return $this->hasMany(ProductImage::class);
-    // }
+    /**
+     * Get the images for the product.
+     */
+    public function images(): HasMany
+    {
+        return $this->hasMany(ProductImage::class);
+    }
 
-    // /**
-    //  * Get the primary image for the product.
-    //  */
-    // public function primaryImage(): HasOne
-    // {
-    //     return $this->hasOne(ProductImage::class)->where('is_primary', true)->orderBy('id');
-    // }
+    /**
+     * Get the primary image for the product.
+     */
+    public function primaryImage(): HasOne
+    {
+        return $this->hasOne(ProductImage::class)->where('is_primary', true)->orderBy('id');
+    }
 
-    // public function taxonomies(): BelongsToMany
-    // {
-    //     return $this->belongsToMany(Taxonomy::class, 'product_taxonomies')->withTimestamps();
-    // }
+    public function taxonomies(): BelongsToMany
+    {
+        return $this->belongsToMany(Taxonomy::class, 'product_taxonomies')->withTimestamps();
+    }
 
-    // public function productTaxonomies()
-    // {
-    //     return $this->hasMany(ProductTaxonomy::class);
-    // }
+    public function productTaxonomies()
+    {
+        return $this->hasMany(ProductTaxonomy::class);
+    }
 
 
     // filters

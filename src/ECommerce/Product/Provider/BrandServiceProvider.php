@@ -2,12 +2,12 @@
 
 namespace Arkenstone\Core\ECommerce\Product\Provider;
 
-use Arkenstone\Core\ECommerce\Product\Services\ProductService;
+use Arkenstone\Core\ECommerce\Product\Services\BrandService;
 use Illuminate\Foundation\Support\Providers\RouteServiceProvider as ServiceProvider;
 
-class ProductServiceProvider extends ServiceProvider
+class BrandServiceProvider extends ServiceProvider
 {
-    protected string $name = 'Product';
+    protected string $name = 'Brand';
 
     /**
      * Called before routes are registered.
@@ -17,15 +17,12 @@ class ProductServiceProvider extends ServiceProvider
     public function boot(): void
     {
         parent::boot();
-
-        // Load Product module routes
-        $this->loadRoutesFrom(__DIR__ . '/../routes/api.php');
     }
 
     public function register(): void
     {
-        $this->app->singleton('product', function () {
-            return new ProductService();
+        $this->app->singleton('brand', function () {
+            return new BrandService();
         });
     }
 }
