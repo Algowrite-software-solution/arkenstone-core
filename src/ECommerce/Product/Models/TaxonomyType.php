@@ -2,10 +2,12 @@
 
 namespace Arkenstone\Core\ECommerce\Product\Models;
 
+use Arkenstone\Core\Database\Factories\TaxonomyTypeFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Factories\Factory;
 
 class TaxonomyType extends Model
 {
@@ -28,5 +30,13 @@ class TaxonomyType extends Model
     public function taxonomies(): HasMany
     {
         return $this->hasMany(Taxonomy::class);
+    }
+
+    /**
+     * Create a new factory instance for the model.
+     */
+    protected static function newFactory(): Factory
+    {
+        return TaxonomyTypeFactory::new();
     }
 }

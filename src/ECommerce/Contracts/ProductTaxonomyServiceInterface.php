@@ -2,7 +2,7 @@
 
 namespace Arkenstone\Core\ECommerce\Contracts;
 
-interface ProductTaxonomyServiceInterface extends Service
+interface ProductTaxonomyServiceInterface
 {
     public function attachTaxonomy(int $productId, int $taxonomyId);
     public function detachTaxonomy(int $productId, int $taxonomyId);

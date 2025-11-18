@@ -14,10 +14,15 @@ class ProductImageResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $imageUrl = $this->image_url;
+        if ($imageUrl && !filter_var($imageUrl, FILTER_VALIDATE_URL)) {
+            $imageUrl = asset('storage/' . $imageUrl);
+        }
+
         return [
             'id' => $this->id,
             'product_id' => $this->product_id,
-            'image_url' => $this->image_url ? asset('storage/' . $this->image_url) : null,
+            'image_url' => $imageUrl,
             'alt_text' => $this->alt_text,
             'is_primary' => $this->is_primary,
             'sort_order' => $this->sort_order,

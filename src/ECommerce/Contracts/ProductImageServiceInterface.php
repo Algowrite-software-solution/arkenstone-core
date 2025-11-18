@@ -2,7 +2,7 @@
 
 namespace Arkenstone\Core\ECommerce\Contracts;
 
-interface ProductImageServiceInterface extends Service
+interface ProductImageServiceInterface   
 {
     public function getImagesByProductId(int $productId);
     public function getImageById(int $id);

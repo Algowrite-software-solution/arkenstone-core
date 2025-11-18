@@ -25,7 +25,7 @@ class StoreTaxonomyRequest extends FormRequest
             'taxonomy_type_id' => ['required', 'integer', 'exists:taxonomy_types,id'],
             'parent_id' => ['nullable', 'integer', 'exists:taxonomies,id'],
             'name' => ['required', 'string', 'max:255'],
-            'slug' => ['nullable', 'string', 'max:255', 'unique:taxonomies,slug'],
+            'slug' => ['required', 'string', 'max:255', 'unique:taxonomies,slug'],
             'description' => ['nullable', 'string'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'meta' => ['nullable', 'array'],

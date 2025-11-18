@@ -27,41 +27,16 @@ class ProductController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $perPage = $request->input('per_page', 15);
-        $filters = $request->only(['name', 'min_price', 'max_price', 'brand_id', 'category_ids', 'is_active']);
+        $filters = $request->only(['name', 'min_price', 'max_price', 'brand_id', 'category_ids', 'categories', 'is_active', 'per_page', 'brand']);
 
-        $query = Product::query()
-            ->with(['brand', 'categories', 'primaryImage']);
-
-        // Apply filters
-        if (!empty($filters['name'])) {
-            $query->filterByName($filters['name']);
+        // Convert category_ids string to array if needed
+        if (!empty($filters['category_ids']) && !is_array($filters['category_ids'])) {
+            $filters['categories'] = explode(',', $filters['category_ids']);
+        } elseif (!empty($filters['category_ids'])) {
+            $filters['categories'] = $filters['category_ids'];
         }
 
-        if (!empty($filters['min_price'])) {
-            $query->minPrice($filters['min_price']);
-        }
-
-        if (!empty($filters['max_price'])) {
-            $query->maxPrice($filters['max_price']);
-        }
-
-        if (!empty($filters['brand_id'])) {
-            $query->byBrand($filters['brand_id']);
-        }
-
-        if (!empty($filters['category_ids'])) {
-            $categoryIds = is_array($filters['category_ids'])
-                ? $filters['category_ids']
-                : explode(',', $filters['category_ids']);
-            $query->byCategories($categoryIds);
-        }
-
-        if (isset($filters['is_active'])) {
-            $query->where('is_active', filter_var($filters['is_active'], FILTER_VALIDATE_BOOLEAN));
-        }
-
-        $products = $query->paginate($perPage);
+        $products = $this->productService->search($filters);
 
         return ResponseProtocol::success(
             new ProductCollection($products),
@@ -76,19 +51,7 @@ class ProductController extends Controller
     {
         $validated = $request->validated();
 
-        $product = Product::create($validated);
-
-        // Attach categories if provided
-        if (!empty($validated['category_ids'])) {
-            $product->categories()->sync($validated['category_ids']);
-        }
-
-        // Attach taxonomies if provided
-        if (!empty($validated['taxonomy_ids'])) {
-            $product->taxonomies()->sync($validated['taxonomy_ids']);
-        }
-
-        $product->load(['brand', 'categories', 'taxonomies', 'images']);
+        $product = $this->productService->create($validated);
 
         return ResponseProtocol::success(
             new ProductResource($product),
@@ -102,8 +65,7 @@ class ProductController extends Controller
      */
     public function show(int $id): JsonResponse
     {
-        $product = Product::with(['brand', 'categories', 'taxonomies', 'images', 'primaryImage'])
-            ->find($id);
+        $product = $this->productService->find($id, ['brand', 'categories', 'taxonomies', 'images', 'primaryImage']);
 
         if (!$product) {
             return ResponseProtocol::error(
@@ -135,20 +97,7 @@ class ProductController extends Controller
         }
 
         $validated = $request->validated();
-
-        $product->update($validated);
-
-        // Update categories if provided
-        if (isset($validated['category_ids'])) {
-            $product->categories()->sync($validated['category_ids']);
-        }
-
-        // Update taxonomies if provided
-        if (isset($validated['taxonomy_ids'])) {
-            $product->taxonomies()->sync($validated['taxonomy_ids']);
-        }
-
-        $product->load(['brand', 'categories', 'taxonomies', 'images']);
+        $product = $this->productService->update($product, $validated);
 
         return ResponseProtocol::success(
             new ProductResource($product),
@@ -171,7 +120,7 @@ class ProductController extends Controller
             );
         }
 
-        $product->delete();
+        $this->productService->delete($product);
 
         return ResponseProtocol::success(
             null,

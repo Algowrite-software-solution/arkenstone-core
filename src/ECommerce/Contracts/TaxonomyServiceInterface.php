@@ -2,7 +2,7 @@
 
 namespace Arkenstone\Core\ECommerce\Contracts;
 
-interface TaxonomyServiceInterface extends Service
+interface TaxonomyServiceInterface
 {
     public function getAllTaxonomies();
     public function getTaxonomyById(int $id);

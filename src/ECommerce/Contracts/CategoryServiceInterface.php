@@ -2,7 +2,7 @@
 
 namespace Arkenstone\Core\ECommerce\Contracts;
 
-interface CategoryServiceInterface extends Service
+interface CategoryServiceInterface 
 {
     public function getAllCategories();
     public function getCategoryById(int $id);

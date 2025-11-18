@@ -2,7 +2,7 @@
 
 namespace Arkenstone\Core\ECommerce\Contracts;
 
-interface BrandServiceInterface extends Service
+interface BrandServiceInterface
 {
     public function getAllBrands();
     public function getBrandById(int $id);

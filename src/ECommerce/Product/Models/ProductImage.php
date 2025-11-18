@@ -2,10 +2,12 @@
 
 namespace Arkenstone\Core\ECommerce\Product\Models;
 
+use Arkenstone\Core\Database\Factories\ProductImageFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Factories\Factory;
 
 class ProductImage extends Model
 {
@@ -39,5 +41,13 @@ class ProductImage extends Model
     {
         // Assuming images are stored in a public storage disk
         return asset('storage/' . ltrim($this->image_url, '/'));
+    }
+
+    /**
+     * Create a new factory instance for the model.
+     */
+    protected static function newFactory(): Factory
+    {
+        return ProductImageFactory::new();
     }
 }
