@@ -27,16 +27,11 @@ class BrandController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $perPage = $request->input('per_page', 15);
-        $isActive = $request->input('is_active');
+        $filters = [
+            'limit' => $request->input('per_page', 15),
+        ];
 
-        $query = Brand::query();
-
-        if ($isActive !== null) {
-            $query->where('is_active', filter_var($isActive, FILTER_VALIDATE_BOOLEAN));
-        }
-
-        $brands = $query->paginate($perPage);
+        $brands = $this->brandService->queryBrands($filters);
 
         return ResponseProtocol::success(
             new BrandCollection($brands),

@@ -10,4 +10,5 @@ interface BrandServiceInterface
     public function updateBrand(int $id, array $data);
     public function deleteBrand(int $id);
     public function getActiveBrands();
+    public function queryBrands(array $filters);
 }

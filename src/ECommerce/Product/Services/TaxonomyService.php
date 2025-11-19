@@ -20,6 +20,13 @@ class TaxonomyService implements TaxonomyServiceInterface
             $q->whereHas('type', fn($qq) => $qq->where('slug', $filters['type_slug']));
         }
         if (isset($filters['parent_id'])) {
+            $q->where('parent_id', $filters['parent_id']);
+        }
+        if (!empty($filters['root_only'])) {
+            $q->whereNull('parent_id');
+        }
+        if (!empty($filters['search'])) {
+            $q->where('name', 'like', '%' . $filters['search'] . '%');
         }
         return $q->paginate($filters['per_page'] ?? 15);
     }

@@ -108,4 +108,42 @@ class BrandServiceTest extends TestCase
 
         $this->assertFalse($result);
     }
+
+    /** @test */
+    public function it_can_query_brands_with_pagination()
+    {
+        Brand::factory()->count(20)->create();
+
+        $result = $this->brandService->queryBrands(['limit' => 10]);
+
+        $this->assertInstanceOf(\Illuminate\Pagination\LengthAwarePaginator::class, $result);
+        $this->assertCount(10, $result->items());
+        $this->assertEquals(20, $result->total());
+        $this->assertEquals(10, $result->perPage());
+    }
+
+    /** @test */
+    public function it_uses_default_limit_when_not_provided()
+    {
+        Brand::factory()->count(20)->create();
+
+        $result = $this->brandService->queryBrands([]);
+
+        $this->assertInstanceOf(\Illuminate\Pagination\LengthAwarePaginator::class, $result);
+        $this->assertCount(15, $result->items());
+        $this->assertEquals(15, $result->perPage());
+    }
+
+    /** @test */
+    public function it_returns_brands_ordered_by_latest()
+    {
+        $oldBrand = Brand::factory()->create(['name' => 'Old Brand']);
+        sleep(1);
+        $newBrand = Brand::factory()->create(['name' => 'New Brand']);
+
+        $result = $this->brandService->queryBrands(['limit' => 10]);
+
+        $this->assertEquals($newBrand->id, $result->items()[0]->id);
+        $this->assertEquals($oldBrand->id, $result->items()[1]->id);
+    }
 }

@@ -5,6 +5,7 @@ namespace Arkenstone\Core\ECommerce\Product\Services;
 use Arkenstone\Core\ECommerce\Contracts\BrandServiceInterface;
 use Arkenstone\Core\ECommerce\Product\Models\Brand;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class BrandService implements BrandServiceInterface
 {
@@ -53,5 +54,10 @@ class BrandService implements BrandServiceInterface
     public function getActiveBrands(): Collection
     {
         return Brand::where('is_active', true)->get();
+    }
+
+    public function queryBrands(array $filters): LengthAwarePaginator
+    {
+        return Brand::latest()->paginate($filters['limit'] ?? 15);
     }
 }
