@@ -4,9 +4,8 @@ namespace Arkenstone\Core\ECommerce\Product\Services;
 
 use Arkenstone\Core\ECommerce\Contracts\ProductTaxonomyServiceInterface;
 use Arkenstone\Core\ECommerce\Product\Models\Product;
-use Arkenstone\Core\ECommerce\Product\Models\ProductTaxonomy;
 use Arkenstone\Core\ECommerce\Product\Models\Taxonomy;
-use Illuminate\Database\Eloquent\Collection;
+
 
 class ProductTaxonomyService implements ProductTaxonomyServiceInterface
 {
@@ -15,71 +14,36 @@ class ProductTaxonomyService implements ProductTaxonomyServiceInterface
         return "Product Taxonomy Service";
     }
 
-    public function attachTaxonomy(int $productId, int $taxonomyId): bool
+     public function attachToProduct(Product $product, array $taxonomyIds): void
     {
-        $product = Product::find($productId);
-        $taxonomy = Taxonomy::find($taxonomyId);
-
-        if (!$product || !$taxonomy) {
-            return false;
-        }
-
-        // Check if already attached
-        $exists = ProductTaxonomy::where('product_id', $productId)
-            ->where('taxonomy_id', $taxonomyId)
-            ->exists();
-
-        if ($exists) {
-            return true;
-        }
-
-        ProductTaxonomy::create([
-            'product_id' => $productId,
-            'taxonomy_id' => $taxonomyId,
-        ]);
-
-        return true;
+        // Attach an array of taxonomy IDs to the product
+        $product->taxonomies()->attach($taxonomyIds);
     }
 
-    public function detachTaxonomy(int $productId, int $taxonomyId): bool
+    public function syncForProduct(Product $product, array $taxonomyIds): void
     {
-        return ProductTaxonomy::where('product_id', $productId)
-            ->where('taxonomy_id', $taxonomyId)
-            ->delete() > 0;
-    }
-
-    public function syncTaxonomies(int $productId, array $taxonomyIds): bool
-    {
-        $product = Product::find($productId);
-
-        if (!$product) {
-            return false;
-        }
-
+        // Sync ensures only the provided IDs are attached, detaching any others.
         $product->taxonomies()->sync($taxonomyIds);
-
-        return true;
     }
 
-    public function getTaxonomiesByProduct(int $productId): Collection
+    // Detach a specific taxonomy from a product
+    public function detachFromProduct(Product $product, Taxonomy $taxonomy): void
     {
-        $product = Product::find($productId);
-
-        if (!$product) {
-            return new Collection();
-        }
-
-        return $product->taxonomies;
+        // Detach a single taxonomy ID
+        $product->taxonomies()->detach($taxonomy->id);
     }
 
-    public function getProductsByTaxonomy(int $taxonomyId): Collection
+    public function getProductsByTaxonomy(Taxonomy $taxonomy, array $with = [])
     {
-        $taxonomy = Taxonomy::find($taxonomyId);
+        return $taxonomy->products()->with($with)->paginate(15);
+    }
 
-        if (!$taxonomy) {
-            return new Collection();
-        }
 
-        return $taxonomy->products;
+    public function getProductTaxonomies(Product $product, ?int $typeId = null)
+    {
+        $rel = $product->taxonomies()->with('type');
+        if ($typeId)
+            $rel->where('taxonomy_type_id', $typeId);
+        return $rel->get();
     }
 }

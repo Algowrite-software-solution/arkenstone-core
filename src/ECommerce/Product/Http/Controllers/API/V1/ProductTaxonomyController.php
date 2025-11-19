@@ -5,12 +5,14 @@ namespace Arkenstone\Core\ECommerce\Product\Http\Controllers\API\V1;
 use Arkenstone\Core\ECommerce\Product\Http\Requests\AttachTaxonomiesToProductRequest;
 use Arkenstone\Core\ECommerce\Product\Http\Requests\DetachTaxonomiesRequest;
 use Arkenstone\Core\ECommerce\Product\Http\Requests\SyncTaxonomiesToProductRequest;
-use Arkenstone\Core\ECommerce\Product\Http\Resources\ProductTaxonomyResource;
+use Arkenstone\Core\ECommerce\Product\Http\Resources\ProductResource;
 use Arkenstone\Core\ECommerce\Product\Http\Resources\TaxonomyResource;
+use Arkenstone\Core\ECommerce\Product\Models\Product;
+use Arkenstone\Core\ECommerce\Product\Models\Taxonomy;
 use Arkenstone\Core\ECommerce\Product\Services\ProductTaxonomyService;
 use Arkenstone\Core\Helpers\ResponseProtocol;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller;
+use Illuminate\Http\Request;
 
 class ProductTaxonomyController extends Controller
 {
@@ -21,153 +23,106 @@ class ProductTaxonomyController extends Controller
         $this->productTaxonomyService = $productTaxonomyService;
     }
 
-    /**
-     * Get all taxonomies for a specific product.
-     */
-    public function getProductTaxonomies(int $productId): JsonResponse
+    // GET /products/{product}/taxonomies
+    public function index(Request $request, Product $product)
     {
-        $taxonomies = $this->productTaxonomyService->getTaxonomiesByProduct($productId);
-
+        $typeId = $request->query('type_id');
+        $taxonomies = $this->productTaxonomyService->getProductTaxonomies($product, $typeId); // expect Collection
         return ResponseProtocol::success(
             TaxonomyResource::collection($taxonomies),
-            'Product taxonomies retrieved successfully'
+            'Product taxonomies retrieved successfully.'
         );
     }
 
-    /**
-     * Get all products for a specific taxonomy.
-     */
-    public function getTaxonomyProducts(int $taxonomyId): JsonResponse
+    // The attach method handles bulk attach from request body
+    public function attach(AttachTaxonomiesToProductRequest $request)
     {
-        $products = $this->productTaxonomyService->getProductsByTaxonomy($taxonomyId);
-
-        return ResponseProtocol::success(
-            $products,
-            'Taxonomy products retrieved successfully'
-        );
-    }
-
-    /**
-     * Attach one or more taxonomies to a product.
-     */
-    public function attach(AttachTaxonomiesToProductRequest $request): JsonResponse
-    {
-        $validated = $request->validated();
-        $productId = $validated['product_id'];
-        $taxonomyIds = $validated['taxonomy_ids'];
-
-        $product = \Arkenstone\Core\ECommerce\Product\Models\Product::find($productId);
-
-        if (!$product) {
-            return ResponseProtocol::error(null, 'Product not found', 404);
-        }
-
-        $currentTaxonomyIds = $product->taxonomies()->pluck('taxonomies.id')->toArray();
-
+        $product = Product::findOrFail($request->validated()['product_id']);
+        $taxonomyIds = $request->validated()['taxonomy_ids'];
+        
         $attached = [];
         $alreadyAttached = [];
-        $failed = [];
-
+        
         foreach ($taxonomyIds as $taxonomyId) {
-            if (in_array($taxonomyId, $currentTaxonomyIds)) {
+            if ($product->taxonomies->contains($taxonomyId)) {
                 $alreadyAttached[] = $taxonomyId;
-                continue;
-            }
-
-            $success = $this->productTaxonomyService->attachTaxonomy($productId, $taxonomyId);
-
-            if ($success) {
-                $attached[] = $taxonomyId;
             } else {
-                $failed[] = $taxonomyId;
+                $attached[] = $taxonomyId;
             }
         }
-
-        $message = count($attached) === count($taxonomyIds)
-            ? 'All taxonomies attached successfully'
-            : sprintf('%d newly attached, %d already attached, %d failed', count($attached), count($alreadyAttached), count($failed));
-
-        return ResponseProtocol::success(
-            [
-                'product_id' => $productId,
-                'attached' => $attached,
-                'already_attached' => $alreadyAttached,
-                'failed' => $failed,
-                'total_attached' => count($attached),
-                'total_already_attached' => count($alreadyAttached),
-                'total_failed' => count($failed),
-            ],
-            $message
-        );
-    }
-
-    /**
-     * Sync taxonomies for a product (replaces all existing).
-     */
-    public function sync(SyncTaxonomiesToProductRequest $request): JsonResponse
-    {
-        $validated = $request->validated();
-        $productId = $validated['product_id'];
-        $taxonomyIds = $validated['taxonomy_ids'] ?? [];
-
-        $success = $this->productTaxonomyService->syncTaxonomies($productId, $taxonomyIds);
-
-        if (!$success) {
-            return ResponseProtocol::error(
-                null,
-                'Failed to sync taxonomies. Product not found.',
-                404
-            );
+        
+        if (!empty($attached)) {
+            $this->productTaxonomyService->attachToProduct($product, $attached);
         }
-
-        $taxonomies = $this->productTaxonomyService->getTaxonomiesByProduct($productId);
-
+        
         return ResponseProtocol::success(
             [
-                'product_id' => $productId,
-                'synced_taxonomy_ids' => $taxonomyIds,
-                'total_synced' => count($taxonomyIds),
-                'taxonomies' => TaxonomyResource::collection($taxonomies),
+                'attached' => $attached,
+                'already_attached' => $alreadyAttached
             ],
-            'Taxonomies synced successfully'
+            'Taxonomies attached to product successfully.'
         );
     }
 
-    /**
-     * Detach one or more taxonomies from a product.
-     */
-    public function detach(DetachTaxonomiesRequest $request): JsonResponse
+    // The sync method handles bulk sync from request body
+    public function sync(SyncTaxonomiesToProductRequest $request)
     {
-        $validated = $request->validated();
-        $productId = $validated['product_id'];
-        $taxonomyIds = $validated['taxonomy_ids'];
+        $product = Product::findOrFail($request->validated()['product_id']);
+        $taxonomyIds = $request->validated()['taxonomy_ids'];
+        
+        $this->productTaxonomyService->syncForProduct($product, $taxonomyIds);
+        
+        return ResponseProtocol::success(
+            null,
+            'Product taxonomies synchronized successfully.'
+        );
+    }
 
+    // The detach method handles bulk detach from request body
+    public function detach(DetachTaxonomiesRequest $request)
+    {
+        $product = Product::findOrFail($request->validated()['product_id']);
+        $taxonomyIds = $request->validated()['taxonomy_ids'];
+        
         $detached = [];
         $notFound = [];
-
+        
         foreach ($taxonomyIds as $taxonomyId) {
-            $success = $this->productTaxonomyService->detachTaxonomy($productId, $taxonomyId);
-
-            if ($success) {
-                $detached[] = $taxonomyId;
+            if ($product->taxonomies->contains($taxonomyId)) {
+                $taxonomy = Taxonomy::find($taxonomyId);
+                if ($taxonomy) {
+                    $this->productTaxonomyService->detachFromProduct($product, $taxonomy);
+                    $detached[] = $taxonomyId;
+                }
             } else {
                 $notFound[] = $taxonomyId;
             }
         }
-
-        $message = count($detached) === count($taxonomyIds)
-            ? 'All taxonomies detached successfully'
-            : sprintf('%d taxonomies detached, %d not found', count($detached), count($notFound));
-
+        
         return ResponseProtocol::success(
             [
-                'product_id' => $productId,
                 'detached' => $detached,
-                'not_found' => $notFound,
-                'total_detached' => count($detached),
-                'total_not_found' => count($notFound),
+                'not_found' => $notFound
             ],
-            $message
+            'Taxonomies detached from product successfully.'
+        );
+    }
+
+    /**
+     * |-------------------------------------------------------------------------------------|
+     *      @route GET /taxonomies/{taxonomy}/products
+     *      This endpoint retrieves all products associated with a specific taxonomy.
+     *      @Note This endpoint requires the user to be authenticated.
+     *      @Note This method not implemented yet.
+     * |-------------------------------------------------------------------------------------|
+     */
+    public function products(Request $request, Taxonomy $taxonomy)
+    {
+        $with = (array) $request->query('with', []);
+        $products = $this->productTaxonomyService->getProductsByTaxonomy($taxonomy, $with);
+        return ResponseProtocol::success(
+            ProductResource::collection($products),
+            "Products retrieved successfully."
         );
     }
 }

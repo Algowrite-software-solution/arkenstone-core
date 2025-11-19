@@ -2,11 +2,15 @@
 
 namespace Arkenstone\Core\ECommerce\Contracts;
 
+use Arkenstone\Core\ECommerce\Product\Models\Product;
+use Arkenstone\Core\ECommerce\Product\Models\Taxonomy;
+
 interface ProductTaxonomyServiceInterface
 {
-    public function attachTaxonomy(int $productId, int $taxonomyId);
-    public function detachTaxonomy(int $productId, int $taxonomyId);
-    public function syncTaxonomies(int $productId, array $taxonomyIds);
-    public function getTaxonomiesByProduct(int $productId);
-    public function getProductsByTaxonomy(int $taxonomyId);
+   public function attachToProduct(Product $product, array $productTaxonomyData): void;
+    public function syncForProduct(Product $product, array $productTaxonomyData): void;
+    public function detachFromProduct(Product $product, Taxonomy $taxonomy): void;
+
+    public function getProductTaxonomies(Product $product, ?int $typeId = null);
+    public function getProductsByTaxonomy(Taxonomy $taxonomy, array $with = []);
 }

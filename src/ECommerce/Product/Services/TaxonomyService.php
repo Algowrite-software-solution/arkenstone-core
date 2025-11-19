@@ -4,59 +4,47 @@ namespace Arkenstone\Core\ECommerce\Product\Services;
 
 use Arkenstone\Core\ECommerce\Contracts\TaxonomyServiceInterface;
 use Arkenstone\Core\ECommerce\Product\Models\Taxonomy;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class TaxonomyService implements TaxonomyServiceInterface
 {
-    public function getName(): string
+    //Taxonomies
+    public function listTaxonomies(array $filters = []): LengthAwarePaginator
     {
-        return "Taxonomy Service";
-    }
-
-    public function getAllTaxonomies(): Collection
-    {
-        return Taxonomy::all();
-    }
-
-    public function getTaxonomyById(int $id): ?Taxonomy
-    {
-        return Taxonomy::find($id);
+        $q = Taxonomy::query()->with(['type', 'parent', 'children']);
+        if (isset($filters['taxonomy_type_id'])) {
+            $q->where('taxonomy_type_id', $filters['taxonomy_type_id']);
+        }
+        if (isset($filters['type_slug'])) {
+            $q->whereHas('type', fn($qq) => $qq->where('slug', $filters['type_slug']));
+        }
+        if (isset($filters['parent_id'])) {
+        }
+        return $q->paginate($filters['per_page'] ?? 15);
     }
 
     public function createTaxonomy(array $data): Taxonomy
     {
-        return Taxonomy::create($data);
+        return DB::transaction(function () use ($data) {
+            return Taxonomy::create($data);
+        });
     }
 
-    public function updateTaxonomy(int $id, array $data): bool
+    public function updateTaxonomy(Taxonomy $taxonomy, array $data): Taxonomy
     {
-        $taxonomy = Taxonomy::find($id);
-
-        if (!$taxonomy) {
-            return false;
-        }
-
-        return $taxonomy->update($data);
+        $taxonomy->update($data);
+        return $taxonomy->fresh();
     }
 
-    public function deleteTaxonomy(int $id): bool
+    public function deleteTaxonomy(Taxonomy $taxonomy): bool
     {
-        $taxonomy = Taxonomy::find($id);
-
-        if (!$taxonomy) {
-            return false;
-        }
-
-        return $taxonomy->delete();
+        $taxonomy->delete();
+        return true;
     }
 
-    public function getActiveTaxonomies(): Collection
+    public function getActiveTaxonomies()
     {
         return Taxonomy::where('is_active', true)->get();
-    }
-
-    public function getTaxonomiesByType(int $typeId): Collection
-    {
-        return Taxonomy::where('taxonomy_type_id', $typeId)->get();
     }
 }

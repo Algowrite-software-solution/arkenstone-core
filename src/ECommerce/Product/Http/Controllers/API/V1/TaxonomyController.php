@@ -7,7 +7,7 @@ use Arkenstone\Core\ECommerce\Product\Http\Requests\UpdateTaxonomyRequest;
 use Arkenstone\Core\ECommerce\Product\Http\Resources\TaxonomyResource;
 use Arkenstone\Core\ECommerce\Product\Http\Resources\Collection\TaxonomyCollection;
 use Arkenstone\Core\ECommerce\Product\Models\Taxonomy;
-use Arkenstone\Core\ECommerce\Product\Services\TaxonomyService;
+use Arkenstone\Core\ECommerce\Contracts\TaxonomyServiceInterface;
 use Arkenstone\Core\Helpers\ResponseProtocol;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,9 +15,9 @@ use Illuminate\Routing\Controller;
 
 class TaxonomyController extends Controller
 {
-    protected TaxonomyService $taxonomyService;
+    protected TaxonomyServiceInterface $taxonomyService;
 
-    public function __construct(TaxonomyService $taxonomyService)
+    public function __construct(TaxonomyServiceInterface $taxonomyService)
     {
         $this->taxonomyService = $taxonomyService;
     }
@@ -27,22 +27,7 @@ class TaxonomyController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $perPage = $request->input('per_page', 15);
-        $isActive = $request->input('is_active');
-        $typeId = $request->input('type_id');
-
-        $query = Taxonomy::query()->with(['taxonomyType', 'parent', 'children']);
-
-        if ($isActive !== null) {
-            $query->where('is_active', filter_var($isActive, FILTER_VALIDATE_BOOLEAN));
-        }
-
-        if ($typeId !== null) {
-            $query->where('taxonomy_type_id', $typeId);
-        }
-
-        $taxonomies = $query->paginate($perPage);
-
+        $taxonomies = $this->taxonomyService->listTaxonomies(request()->all());
         return ResponseProtocol::success(
             new TaxonomyCollection($taxonomies),
             'Taxonomies retrieved successfully'
@@ -54,15 +39,10 @@ class TaxonomyController extends Controller
      */
     public function store(StoreTaxonomyRequest $request): JsonResponse
     {
-        $validated = $request->validated();
-
-        $taxonomy = $this->taxonomyService->createTaxonomy($validated);
-
-        $taxonomy->load(['taxonomyType', 'parent', 'children']);
-
+        $taxonomy = $this->taxonomyService->createTaxonomy($request->validated());
         return ResponseProtocol::success(
             new TaxonomyResource($taxonomy),
-            'Taxonomy created successfully',
+            "Taxonomy created successfully.",
             201
         );
     }
@@ -70,80 +50,58 @@ class TaxonomyController extends Controller
     /**
      * Display the specified taxonomy.
      */
-    public function show(int $id): JsonResponse
+    public function show(Taxonomy $taxonomy): JsonResponse
     {
-        $taxonomy = Taxonomy::with(['taxonomyType', 'parent', 'children'])->find($id);
-
-        if (!$taxonomy) {
-            return ResponseProtocol::error(
-                null,
-                'Taxonomy not found',
-                404
-            );
-        }
-
+        $taxonomy->load(['type', 'parent', 'children']);
         return ResponseProtocol::success(
             new TaxonomyResource($taxonomy),
-            'Taxonomy retrieved successfully'
+            "Taxonomy retrieved successfully."
         );
     }
 
     /**
      * Update the specified taxonomy.
      */
-    public function update(UpdateTaxonomyRequest $request, int $id): JsonResponse
+    public function update(UpdateTaxonomyRequest $request, Taxonomy $taxonomy): JsonResponse
     {
-        $validated = $request->validated();
-
-        $success = $this->taxonomyService->updateTaxonomy($id, $validated);
-
-        if (!$success) {
-            return ResponseProtocol::error(
-                null,
-                'Taxonomy not found',
-                404
-            );
-        }
-
-        $taxonomy = Taxonomy::with(['taxonomyType', 'parent', 'children'])->find($id);
-
-        return ResponseProtocol::success(
-            new TaxonomyResource($taxonomy),
-            'Taxonomy updated successfully'
-        );
+        $updated = $this->taxonomyService->updateTaxonomy($taxonomy, $request->validated());
+        return ResponseProtocol::success(new TaxonomyResource($updated), "Taxonomy updated successfully.");
     }
 
     /**
      * Remove the specified taxonomy.
      */
-    public function destroy(int $id): JsonResponse
+    public function destroy(Taxonomy $taxonomy): JsonResponse
     {
-        $success = $this->taxonomyService->deleteTaxonomy($id);
-
-        if (!$success) {
-            return ResponseProtocol::error(
-                null,
-                'Taxonomy not found',
-                404
-            );
+        $returnOfService = $this->taxonomyService->deleteTaxonomy($taxonomy);
+        if ($returnOfService) {
+            return ResponseProtocol::success(null, "Taxonomy and its children deleted successfully.");
+        } else {
+            return ResponseProtocol::error("Failed to delete taxonomy.", 500);
         }
+    }
 
+    /**
+     * GET the active taxonomies.
+     */
+    public function active(): JsonResponse
+    {
+        $taxonomies = $this->taxonomyService->getActiveTaxonomies();
         return ResponseProtocol::success(
-            null,
-            'Taxonomy deleted successfully'
+            TaxonomyResource::collection($taxonomies),
+            "Active taxonomies retrieved successfully."
         );
     }
 
     /**
-     * Get taxonomies by type.
+     * GET taxonomies filtered by type.
      */
     public function byType(int $typeId): JsonResponse
     {
-        $taxonomies = $this->taxonomyService->getTaxonomiesByType($typeId);
-
+        $taxonomies = $this->taxonomyService->listTaxonomies(['taxonomy_type_id' => $typeId]);
         return ResponseProtocol::success(
-            TaxonomyResource::collection($taxonomies),
-            'Taxonomies retrieved successfully'
+            new TaxonomyCollection($taxonomies),
+            "Taxonomies filtered by type retrieved successfully."
         );
     }
 }

@@ -3,6 +3,7 @@
 namespace Arkenstone\Core\ECommerce\Product\Models;
 
 use Arkenstone\Core\Database\Factories\BrandFactory;
+use Arkenstone\Core\ECommerce\Contracts\Brand\BrandContract;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;

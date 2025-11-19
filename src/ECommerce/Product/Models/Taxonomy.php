@@ -40,6 +40,14 @@ class Taxonomy extends Model
     }
 
     /**
+     * Alias for taxonomyType() - for backward compatibility
+     */
+    public function type(): BelongsTo
+    {
+        return $this->taxonomyType();
+    }
+
+    /**
      * Get the parent taxonomy.
      */
     public function parent(): BelongsTo
@@ -61,6 +69,22 @@ class Taxonomy extends Model
     public function products(): BelongsToMany
     {
         return $this->belongsToMany(Product::class, 'product_taxonomies')->withTimestamps();
+    }
+
+    // Query scopes
+    public function scopeByType($query, int $typeId)
+    {
+        return $query->where('taxonomy_type_id', $typeId);
+    }
+
+    public function scopeIsActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    public function scopeFilterByName($query, string $name)
+    {
+        return $query->where('name', 'like', '%' . $name . '%');
     }
 
     /**

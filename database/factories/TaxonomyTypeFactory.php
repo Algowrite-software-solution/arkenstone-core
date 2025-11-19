@@ -20,7 +20,8 @@ class TaxonomyTypeFactory extends Factory
      */
     public function definition(): array
     {
-        $name = $this->faker->unique()->randomElement(['Color', 'Size', 'Material', 'Style', 'Feature', 'Weight', 'Dimension', 'Pattern', 'Finish', 'Grade']);
+        $name = $this->faker->unique()->words(2, true);
+        $name = ucwords($name);
 
         return [
             'name' => $name,

@@ -30,6 +30,9 @@ Route::prefix('api/v1')->middleware('api')->group(function () {
     Route::get('taxonomies/type/{typeId}', [V1\TaxonomyController::class, 'byType'])->name('taxonomies.by-type');
     Route::apiResource('taxonomies', V1\TaxonomyController::class);
 
+    // Taxonomy Types
+    Route::apiResource('taxonomy-types', V1\TaxonomyTypeController::class);
+
     // Product Images
     Route::get('products/{productId}/images', [V1\ProductImageController::class, 'index'])->name('products.images.index');
     Route::post('product-images', [V1\ProductImageController::class, 'store'])->name('product-images.store');
@@ -40,8 +43,8 @@ Route::prefix('api/v1')->middleware('api')->group(function () {
     Route::get('products/{productId}/primary-image', [V1\ProductImageController::class, 'getPrimary'])->name('products.primary-image');
 
     // Product Taxonomies
-    Route::get('products/{productId}/taxonomies', [V1\ProductTaxonomyController::class, 'getProductTaxonomies'])->name('products.taxonomies.index');
-    Route::get('taxonomies/{taxonomyId}/products', [V1\ProductTaxonomyController::class, 'getTaxonomyProducts'])->name('taxonomies.products.index');
+    Route::get('products/{product}/taxonomies', [V1\ProductTaxonomyController::class, 'index'])->name('products.taxonomies.index');
+    Route::get('taxonomies/{taxonomy}/products', [V1\ProductTaxonomyController::class, 'products'])->name('taxonomies.products.index');
     Route::post('products/taxonomies/attach', [V1\ProductTaxonomyController::class, 'attach'])->name('products.taxonomies.attach');
     Route::post('products/taxonomies/sync', [V1\ProductTaxonomyController::class, 'sync'])->name('products.taxonomies.sync');
     Route::post('products/taxonomies/detach', [V1\ProductTaxonomyController::class, 'detach'])->name('products.taxonomies.detach');
