@@ -35,7 +35,8 @@ class BrandController extends Controller
 
         return ResponseProtocol::success(
             new BrandCollection($brands),
-            'Brands retrieved successfully'
+            'Brands retrieved successfully',
+            200
         );
     }
 
@@ -72,7 +73,8 @@ class BrandController extends Controller
 
         return ResponseProtocol::success(
             new BrandResource($brand),
-            'Brand retrieved successfully'
+            'Brand retrieved successfully',
+            200
         );
     }
 
@@ -97,7 +99,8 @@ class BrandController extends Controller
 
         return ResponseProtocol::success(
             new BrandResource($brand),
-            'Brand updated successfully'
+            'Brand updated successfully',
+            200
         );
     }
 
@@ -118,7 +121,8 @@ class BrandController extends Controller
 
         return ResponseProtocol::success(
             null,
-            'Brand deleted successfully'
+            'Brand deleted successfully',
+            200
         );
     }
 }
