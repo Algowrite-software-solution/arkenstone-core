@@ -57,7 +57,7 @@ class ProductImageController extends Controller
         $image = $this->productImageService->getImageById($id);
 
         if (!$image) {
-            return ResponseProtocol::error(
+            return ResponseProtocol::failed(
                 null,
                 'Product image not found',
                 404
@@ -80,7 +80,7 @@ class ProductImageController extends Controller
         $success = $this->productImageService->updateImage($id, $validated);
 
         if (!$success) {
-            return ResponseProtocol::error(
+            return ResponseProtocol::failed(
                 null,
                 'Product image not found',
                 404
@@ -103,7 +103,7 @@ class ProductImageController extends Controller
         $success = $this->productImageService->deleteImage($id);
 
         if (!$success) {
-            return ResponseProtocol::error(
+            return ResponseProtocol::failed(
                 null,
                 'Product image not found',
                 404
@@ -124,7 +124,7 @@ class ProductImageController extends Controller
         $success = $this->productImageService->setPrimaryImage($productId, $imageId);
 
         if (!$success) {
-            return ResponseProtocol::error(
+            return ResponseProtocol::failed(
                 null,
                 'Product image not found or does not belong to this product',
                 404
@@ -147,7 +147,7 @@ class ProductImageController extends Controller
         $image = $this->productImageService->getPrimaryImage($productId);
 
         if (!$image) {
-            return ResponseProtocol::error(
+            return ResponseProtocol::failed(
                 null,
                 'No primary image found for this product',
                 404

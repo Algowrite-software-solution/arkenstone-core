@@ -68,7 +68,7 @@ class ProductController extends Controller
         $product = $this->productService->find($id, ['brand', 'categories', 'taxonomies', 'images', 'primaryImage']);
 
         if (!$product) {
-            return ResponseProtocol::error(
+            return ResponseProtocol::failed(
                 null,
                 'Product not found',
                 404
@@ -89,7 +89,7 @@ class ProductController extends Controller
         $product = Product::find($id);
 
         if (!$product) {
-            return ResponseProtocol::error(
+            return ResponseProtocol::failed(
                 null,
                 'Product not found',
                 404
@@ -113,7 +113,7 @@ class ProductController extends Controller
         $product = Product::find($id);
 
         if (!$product) {
-            return ResponseProtocol::error(
+            return ResponseProtocol::failed(
                 null,
                 'Product not found',
                 404

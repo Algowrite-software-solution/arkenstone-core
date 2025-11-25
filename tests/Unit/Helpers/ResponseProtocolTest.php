@@ -34,7 +34,7 @@ class ResponseProtocolTest extends TestCase
         $message = 'The given data was invalid';
         $code = 422;
 
-        $response = ResponseProtocol::error($errors, $message, $code);
+        $response = ResponseProtocol::failed($errors, $message, $code);
 
         $this->assertInstanceOf(JsonResponse::class, $response);
         $this->assertEquals($code, $response->getStatusCode());
@@ -77,7 +77,7 @@ class ResponseProtocolTest extends TestCase
         });
 
         $errors = ['field' => ['Error message']];
-        ResponseProtocol::error($errors, 'Error', 422);
+        ResponseProtocol::failed($errors, 'Error', 422);
 
         $this->assertTrue($eventFired);
         $this->assertEquals([$errors, 'Error', 422], $receivedArgs);
@@ -95,7 +95,7 @@ class ResponseProtocolTest extends TestCase
     /** @test */
     public function it_can_omit_error_message_parameter()
     {
-        $response = ResponseProtocol::error(['field' => ['error']]);
+        $response = ResponseProtocol::failed(['field' => ['error']]);
         $content = json_decode($response->getContent(), true);
 
         $this->assertArrayHasKey('message', $content);
@@ -107,7 +107,7 @@ class ResponseProtocolTest extends TestCase
         $successResponse = ResponseProtocol::success(['id' => 1], 'Success');
         $this->assertEquals(200, $successResponse->getStatusCode());
 
-        $errorResponse = ResponseProtocol::error(['field' => ['error']], 'Error');
+        $errorResponse = ResponseProtocol::failed(['field' => ['error']], 'Error');
         $this->assertEquals(400, $errorResponse->getStatusCode());
     }
 

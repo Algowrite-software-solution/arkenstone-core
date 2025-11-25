@@ -75,7 +75,7 @@ class CategoryController extends Controller
         $category = Category::with(['parent', 'children'])->find($id);
 
         if (!$category) {
-            return ResponseProtocol::error(
+            return ResponseProtocol::failed(
                 null,
                 'Category not found',
                 404
@@ -98,7 +98,7 @@ class CategoryController extends Controller
         $success = $this->categoryService->updateCategory($id, $validated);
 
         if (!$success) {
-            return ResponseProtocol::error(
+            return ResponseProtocol::failed(
                 null,
                 'Category not found',
                 404
@@ -121,7 +121,7 @@ class CategoryController extends Controller
         $success = $this->categoryService->deleteCategory($id);
 
         if (!$success) {
-            return ResponseProtocol::error(
+            return ResponseProtocol::failed(
                 null,
                 'Category not found',
                 404

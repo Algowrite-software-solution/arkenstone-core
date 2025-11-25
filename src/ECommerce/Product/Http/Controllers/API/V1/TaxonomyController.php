@@ -77,7 +77,7 @@ class TaxonomyController extends Controller
         if ($returnOfService) {
             return ResponseProtocol::success(null, "Taxonomy and its children deleted successfully.");
         } else {
-            return ResponseProtocol::error("Failed to delete taxonomy.", 500);
+            return ResponseProtocol::failed("Failed to delete taxonomy.", 500);
         }
     }
 

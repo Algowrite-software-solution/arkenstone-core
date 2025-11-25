@@ -6,7 +6,6 @@ use Arkenstone\Core\ECommerce\Product\Http\Requests\StoreBrandRequest;
 use Arkenstone\Core\ECommerce\Product\Http\Requests\UpdateBrandRequest;
 use Arkenstone\Core\ECommerce\Product\Http\Resources\BrandResource;
 use Arkenstone\Core\ECommerce\Product\Http\Resources\Collection\BrandCollection;
-use Arkenstone\Core\ECommerce\Product\Models\Brand;
 use Arkenstone\Core\ECommerce\Product\Services\BrandService;
 use Arkenstone\Core\Helpers\ResponseProtocol;
 use Illuminate\Http\JsonResponse;
@@ -64,7 +63,7 @@ class BrandController extends Controller
         $brand = $this->brandService->getBrandById($id);
 
         if (!$brand) {
-            return ResponseProtocol::error(
+            return ResponseProtocol::failed(
                 null,
                 'Brand not found',
                 404
@@ -88,7 +87,7 @@ class BrandController extends Controller
         $success = $this->brandService->updateBrand($id, $validated);
 
         if (!$success) {
-            return ResponseProtocol::error(
+            return ResponseProtocol::failed(
                 null,
                 'Brand not found',
                 404
@@ -112,7 +111,7 @@ class BrandController extends Controller
         $success = $this->brandService->deleteBrand($id);
 
         if (!$success) {
-            return ResponseProtocol::error(
+            return ResponseProtocol::failed(
                 null,
                 'Brand not found',
                 404
