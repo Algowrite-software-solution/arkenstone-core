@@ -2,12 +2,12 @@
 
 namespace Arkenstone\Core\ECommerce\Product\Http\Controllers\API\V1;
 
+use Arkenstone\Core\ECommerce\Contracts\ProductServiceInterface;
 use Arkenstone\Core\ECommerce\Product\Http\Requests\StoreProductRequest;
 use Arkenstone\Core\ECommerce\Product\Http\Requests\UpdateProductRequest;
 use Arkenstone\Core\ECommerce\Product\Http\Resources\ProductResource;
 use Arkenstone\Core\ECommerce\Product\Http\Resources\Collection\ProductCollection;
 use Arkenstone\Core\ECommerce\Product\Models\Product;
-use Arkenstone\Core\ECommerce\Product\Services\ProductService;
 use Arkenstone\Core\Helpers\ResponseProtocol;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,11 +15,9 @@ use Illuminate\Routing\Controller;
 
 class ProductController extends Controller
 {
-    protected ProductService $productService;
 
-    public function __construct(ProductService $productService)
+    public function __construct(private ProductServiceInterface $productService)
     {
-        $this->productService = $productService;
     }
 
     /**

@@ -15,11 +15,9 @@ use Illuminate\Routing\Controller;
 
 class TaxonomyController extends Controller
 {
-    protected TaxonomyServiceInterface $taxonomyService;
 
-    public function __construct(TaxonomyServiceInterface $taxonomyService)
+    public function __construct(private TaxonomyServiceInterface $taxonomyService)
     {
-        $this->taxonomyService = $taxonomyService;
     }
 
     /**

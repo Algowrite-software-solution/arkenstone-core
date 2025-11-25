@@ -2,6 +2,7 @@
 
 namespace Arkenstone\Core\ECommerce\Product\Http\Controllers\API\V1;
 
+use Arkenstone\Core\ECommerce\Contracts\ProductImageServiceInterface;
 use Arkenstone\Core\ECommerce\Product\Http\Requests\StoreProductImageRequest;
 use Arkenstone\Core\ECommerce\Product\Http\Requests\UpdateProductImageRequest;
 use Arkenstone\Core\ECommerce\Product\Http\Resources\ProductImageResource;
@@ -13,11 +14,8 @@ use Illuminate\Routing\Controller;
 
 class ProductImageController extends Controller
 {
-    protected ProductImageService $productImageService;
-
-    public function __construct(ProductImageService $productImageService)
+    public function __construct(private ProductImageServiceInterface $productImageService)
     {
-        $this->productImageService = $productImageService;
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace Arkenstone\Core\ECommerce\Product\Provider;
 
+use Arkenstone\Core\ECommerce\Contracts\ProductTaxonomyServiceInterface;
 use Arkenstone\Core\ECommerce\Product\Services\ProductTaxonomyService;
 use Illuminate\Foundation\Support\Providers\RouteServiceProvider as ServiceProvider;
 
@@ -24,5 +25,9 @@ class ProductTaxonomyServiceProvider extends ServiceProvider
         $this->app->singleton('product-taxonomy', function () {
             return new ProductTaxonomyService();
         });
+        $this->app->bind(
+            ProductTaxonomyServiceInterface::class,
+            ProductTaxonomyService::class
+        );
     }
 }

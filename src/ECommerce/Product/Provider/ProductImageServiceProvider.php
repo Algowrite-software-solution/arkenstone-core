@@ -2,6 +2,7 @@
 
 namespace Arkenstone\Core\ECommerce\Product\Provider;
 
+use Arkenstone\Core\ECommerce\Contracts\ProductImageServiceInterface;
 use Arkenstone\Core\ECommerce\Product\Services\ProductImageService;
 use Illuminate\Foundation\Support\Providers\RouteServiceProvider as ServiceProvider;
 
@@ -24,5 +25,10 @@ class ProductImageServiceProvider extends ServiceProvider
         $this->app->singleton('product-image', function () {
             return new ProductImageService();
         });
+
+        $this->app->bind(
+            ProductImageServiceInterface::class,
+            ProductImageService::class
+        );
     }
 }

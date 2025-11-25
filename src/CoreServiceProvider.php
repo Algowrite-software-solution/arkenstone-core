@@ -8,6 +8,7 @@ use Arkenstone\Core\ECommerce\Product\Provider\ProductImageServiceProvider;
 use Arkenstone\Core\ECommerce\Product\Provider\ProductServiceProvider;
 use Arkenstone\Core\ECommerce\Product\Provider\ProductTaxonomyServiceProvider;
 use Arkenstone\Core\ECommerce\Product\Provider\TaxonomyServiceProvider;
+use Arkenstone\Core\ECommerce\Product\Provider\TaxonomyTypeServiceProvider;
 use Arkenstone\Core\Services\UtilityService;
 use Arkenstone\Core\Support\Event;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -25,6 +26,7 @@ class CoreServiceProvider extends ServiceProvider
         $this->app->register(ProductImageServiceProvider::class);
         $this->app->register(ProductTaxonomyServiceProvider::class);
         $this->app->register(TaxonomyServiceProvider::class);
+        $this->app->register(TaxonomyTypeServiceProvider::class);
         
         $this->app->singleton('utility', function () {
             return new UtilityService();

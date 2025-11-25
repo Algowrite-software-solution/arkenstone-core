@@ -2,11 +2,11 @@
 
 namespace Arkenstone\Core\ECommerce\Product\Http\Controllers\API\V1;
 
+use Arkenstone\Core\ECommerce\Contracts\BrandServiceInterface;
 use Arkenstone\Core\ECommerce\Product\Http\Requests\StoreBrandRequest;
 use Arkenstone\Core\ECommerce\Product\Http\Requests\UpdateBrandRequest;
 use Arkenstone\Core\ECommerce\Product\Http\Resources\BrandResource;
 use Arkenstone\Core\ECommerce\Product\Http\Resources\Collection\BrandCollection;
-use Arkenstone\Core\ECommerce\Product\Services\BrandService;
 use Arkenstone\Core\Helpers\ResponseProtocol;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,11 +14,9 @@ use Illuminate\Routing\Controller;
 
 class BrandController extends Controller
 {
-    protected BrandService $brandService;
 
-    public function __construct(BrandService $brandService)
+    public function __construct(private BrandServiceInterface $brandService)
     {
-        $this->brandService = $brandService;
     }
 
     /**

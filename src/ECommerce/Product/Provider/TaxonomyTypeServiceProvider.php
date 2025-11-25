@@ -2,13 +2,14 @@
 
 namespace Arkenstone\Core\ECommerce\Product\Provider;
 
-use Arkenstone\Core\ECommerce\Contracts\BrandServiceInterface;
-use Arkenstone\Core\ECommerce\Product\Services\BrandService;
+
+use Arkenstone\Core\ECommerce\Contracts\TaxonomyTypeServiceInterface;
+use Arkenstone\Core\ECommerce\Product\Services\TaxonomyTypeService; 
 use Illuminate\Foundation\Support\Providers\RouteServiceProvider as ServiceProvider;
 
-class BrandServiceProvider extends ServiceProvider
+class TaxonomyTypeServiceProvider extends ServiceProvider
 {
-    protected string $name = 'Brand';
+    protected string $name = 'TaxonomyType';
 
     /**
      * Called before routes are registered.
@@ -22,13 +23,13 @@ class BrandServiceProvider extends ServiceProvider
 
     public function register(): void
     {
-        $this->app->singleton('brand', function () {
-            return new BrandService();
+        $this->app->singleton('taxonomy-type', function () {
+            return new TaxonomyTypeService();
         });
 
         $this->app->bind(
-            BrandServiceInterface::class,
-            BrandService::class
+            TaxonomyTypeServiceInterface::class,
+            TaxonomyTypeService::class
         );
     }
 }

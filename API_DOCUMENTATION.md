@@ -3,16 +3,15 @@
 **Version:** 0.1.0  
 **Base URL:** `/api/v1`  
 **Author:** Algowrite  
-**Last Updated:** November 25, 2025
+**Last Updated:** November 26, 2025
 
 ---
 
 ## 📋 Table of Contents
 
 1. [Overview](#overview)
-2. [Authentication](#authentication)
-3. [Response Format](#response-format)
-4. [Error Handling](#error-handling)
+2. [Response Format](#response-format)
+3. [Error Handling](#error-handling)
 5. [API Endpoints](#api-endpoints)
    - [Products](#products)
    - [Brands](#brands)
@@ -44,6 +43,9 @@ The Arkenstone Core API provides a comprehensive e-commerce product management s
 - Relationship eager loading
 - Event-driven architecture
 
+**Authentication:**
+This package does not implement authentication. It is designed to be integrated into Laravel applications that handle authentication through middleware (e.g., Laravel Sanctum, Passport, or custom auth). Apply authentication middleware in your host application's route configuration.
+
 ---
 
 ## 📦 Response Format
@@ -71,6 +73,8 @@ All API responses follow a standardized format using `ResponseProtocol`:
   }
 }
 ```
+
+**Note:** Error responses are generated using `ResponseProtocol::failed($errors, $message, $code)`
 
 ### Paginated Response
 ```json
@@ -1920,6 +1924,13 @@ curl -X GET http://example.com/api/v1/products/1/images
 
 ## 🚀 Best Practices
 
+### Response Protocol
+All API responses use `ResponseProtocol` helper:
+- Success: `ResponseProtocol::success($data, $message, $code)`
+- Error: `ResponseProtocol::failed($errors, $message, $code)`
+
+Both methods trigger events (`response.success` and `response.error`) for custom handling.
+
 ### 1. Always Use Pagination
 ```javascript
 // Good
@@ -1944,10 +1955,10 @@ fetch('/api/v1/products', {
 .then(res => res.json())
 .then(data => {
   if (data.status === 'error') {
-    // Handle validation errors
+    // Handle validation errors (returned via ResponseProtocol::failed())
     console.error(data.errors);
   } else {
-    // Success
+    // Success (returned via ResponseProtocol::success())
     console.log(data.data);
   }
 });
@@ -1976,15 +1987,17 @@ POST /api/v1/products/taxonomies/attach
 
 ## 📝 Changelog
 
-### Version 0.1.0 (November 25, 2025)
+### Version 0.1.0 (November 26, 2025)
 - Initial API release
 - Product CRUD with filtering
 - Brand, Category, Taxonomy management
 - Product Image management
 - Product-Taxonomy relationship operations
-- Comprehensive test coverage (160 tests)
+- Comprehensive test coverage (176 tests, 595 assertions)
+- Built with Orchestra Testbench for isolated package testing
+- Event-driven architecture with WordPress-style hooks
 
 ---
 
-**Last Updated:** November 25, 2025  
+**Last Updated:** November 26, 2025  
 **Document Version:** 0.1.0

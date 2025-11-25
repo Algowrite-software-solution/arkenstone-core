@@ -2,6 +2,7 @@
 
 namespace Arkenstone\Core\ECommerce\Product\Http\Controllers\API\V1;
 
+use Arkenstone\Core\ECommerce\Contracts\ProductTaxonomyServiceInterface;
 use Arkenstone\Core\ECommerce\Product\Http\Requests\AttachTaxonomiesToProductRequest;
 use Arkenstone\Core\ECommerce\Product\Http\Requests\DetachTaxonomiesRequest;
 use Arkenstone\Core\ECommerce\Product\Http\Requests\SyncTaxonomiesToProductRequest;
@@ -16,11 +17,11 @@ use Illuminate\Http\Request;
 
 class ProductTaxonomyController extends Controller
 {
-    protected ProductTaxonomyService $productTaxonomyService;
 
-    public function __construct(ProductTaxonomyService $productTaxonomyService)
+
+    public function __construct(private ProductTaxonomyServiceInterface $productTaxonomyService)
     {
-        $this->productTaxonomyService = $productTaxonomyService;
+
     }
 
     // GET /products/{product}/taxonomies
@@ -39,10 +40,10 @@ class ProductTaxonomyController extends Controller
     {
         $product = Product::findOrFail($request->validated()['product_id']);
         $taxonomyIds = $request->validated()['taxonomy_ids'];
-        
+
         $attached = [];
         $alreadyAttached = [];
-        
+
         foreach ($taxonomyIds as $taxonomyId) {
             if ($product->taxonomies->contains($taxonomyId)) {
                 $alreadyAttached[] = $taxonomyId;
@@ -50,11 +51,11 @@ class ProductTaxonomyController extends Controller
                 $attached[] = $taxonomyId;
             }
         }
-        
+
         if (!empty($attached)) {
             $this->productTaxonomyService->attachToProduct($product, $attached);
         }
-        
+
         return ResponseProtocol::success(
             [
                 'attached' => $attached,
@@ -69,9 +70,9 @@ class ProductTaxonomyController extends Controller
     {
         $product = Product::findOrFail($request->validated()['product_id']);
         $taxonomyIds = $request->validated()['taxonomy_ids'];
-        
+
         $this->productTaxonomyService->syncForProduct($product, $taxonomyIds);
-        
+
         return ResponseProtocol::success(
             null,
             'Product taxonomies synchronized successfully.'
@@ -83,10 +84,10 @@ class ProductTaxonomyController extends Controller
     {
         $product = Product::findOrFail($request->validated()['product_id']);
         $taxonomyIds = $request->validated()['taxonomy_ids'];
-        
+
         $detached = [];
         $notFound = [];
-        
+
         foreach ($taxonomyIds as $taxonomyId) {
             if ($product->taxonomies->contains($taxonomyId)) {
                 $taxonomy = Taxonomy::find($taxonomyId);
@@ -98,7 +99,7 @@ class ProductTaxonomyController extends Controller
                 $notFound[] = $taxonomyId;
             }
         }
-        
+
         return ResponseProtocol::success(
             [
                 'detached' => $detached,

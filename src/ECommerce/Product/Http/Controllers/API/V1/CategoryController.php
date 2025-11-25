@@ -2,6 +2,7 @@
 
 namespace Arkenstone\Core\ECommerce\Product\Http\Controllers\API\V1;
 
+use Arkenstone\Core\ECommerce\Contracts\CategoryServiceInterface;
 use Arkenstone\Core\ECommerce\Product\Http\Requests\StoreCategoryRequest;
 use Arkenstone\Core\ECommerce\Product\Http\Requests\UpdateCategoryRequest;
 use Arkenstone\Core\ECommerce\Product\Http\Resources\CategoryResource;
@@ -15,11 +16,10 @@ use Illuminate\Routing\Controller;
 
 class CategoryController extends Controller
 {
-    protected CategoryService $categoryService;
 
-    public function __construct(CategoryService $categoryService)
+    public function __construct(private CategoryServiceInterface $categoryService)
     {
-        $this->categoryService = $categoryService;
+      
     }
 
     /**

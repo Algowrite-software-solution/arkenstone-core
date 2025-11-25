@@ -29,11 +29,11 @@ use Illuminate\Routing\Controller;
  */
 class TaxonomyTypeController extends Controller
 {
-    protected TaxonomyTypeServiceInterface $taxonomyTypeService;
+ 
 
-    public function __construct(TaxonomyTypeServiceInterface $taxonomyTypeService)
+    public function __construct(private TaxonomyTypeServiceInterface $taxonomyTypeService)
     {
-        $this->taxonomyTypeService = $taxonomyTypeService;
+
     }
 
     // GET /taxonomy-types

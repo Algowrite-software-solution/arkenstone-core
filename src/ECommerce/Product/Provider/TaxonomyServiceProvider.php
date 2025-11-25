@@ -28,14 +28,11 @@ class TaxonomyServiceProvider extends ServiceProvider
         $this->app->singleton('taxonomy', function () {
             return new TaxonomyService();
         });
-        
-        $this->app->bind(TaxonomyServiceInterface::class, TaxonomyService::class);
-        
-        // Bind TaxonomyTypeService
-        $this->app->singleton('taxonomy-type', function () {
-            return new TaxonomyTypeService();
-        });
-        
-        $this->app->bind(TaxonomyTypeServiceInterface::class, TaxonomyTypeService::class);
+
+        $this->app->bind(
+            TaxonomyServiceInterface::class,
+            TaxonomyService::class
+        );
+
     }
 }

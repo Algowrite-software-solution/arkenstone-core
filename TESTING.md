@@ -19,6 +19,8 @@ This document outlines the testing strategy, test structure, and commands for th
 composer test
 # or
 vendor/bin/phpunit
+# or via Orchestra Testbench
+vendor/bin/testbench package:test
 ```
 
 ### Run Specific Test File
@@ -31,6 +33,12 @@ vendor/bin/phpunit tests/Feature/API/V1/ProductControllerTest.php
 vendor/bin/phpunit --filter test_method_name
 # Example:
 vendor/bin/phpunit --filter it_can_list_all_products
+```
+
+### Run Tests with Detailed Output
+```bash
+# Orchestra Testbench provides detailed output with execution times
+vendor/bin/testbench package:test
 ```
 
 ### Run Tests with Coverage (if configured)
@@ -50,9 +58,12 @@ tests/
 │   │   └── ResponseProtocolTest.php      # Response formatting tests
 │   ├── Support/
 │   │   └── EventTest.php                 # Event system tests
+│   ├── Models/
+│   │   └── ProductTest.php               # Product model tests
 │   └── Services/
 │       ├── BrandServiceTest.php          # Brand service unit tests
 │       ├── CategoryServiceTest.php       # Category service unit tests
+│       ├── TaxonomyServiceTest.php       # Taxonomy service unit tests
 │       └── ProductImageServiceTest.php   # Product image service unit tests
 └── Feature/
     ├── RouteLoadingTest.php              # Route registration tests
@@ -62,25 +73,47 @@ tests/
             ├── BrandControllerTest.php           # Brand API endpoints
             ├── CategoryControllerTest.php        # Category API endpoints
             ├── TaxonomyControllerTest.php        # Taxonomy API endpoints
+            ├── TaxonomyTypeControllerTest.php    # Taxonomy type API endpoints
             ├── ProductImageControllerTest.php    # Product image API endpoints
             └── ProductTaxonomyControllerTest.php # Product-taxonomy relationships
 ```
 
 ## Test Plan
 
-### Phase 1: Foundation Tests (31 tests) ✅
+### Phase 1: Foundation Tests (52 tests) ✅
 
 #### Service Provider Tests (10 tests)
 - ✅ Core service provider registers correctly
-- ✅ All 7 services register as singleables (Product, Brand, Category, Taxonomy, ProductImage, ProductTaxonomy, Utility)
+- ✅ All 7 services register as singletons (Product, Brand, Category, Taxonomy, ProductImage, ProductTaxonomy, Utility)
 - ✅ Config file publishes correctly
 - ✅ Routes load properly
+- ✅ Event dispatcher attached on boot
 
-#### Response Protocol Tests (10 tests)
+#### Response Protocol Tests (8 tests)
 - ✅ Success response structure (`status`, `message`, `data`)
-- ✅ Error response structure (`status`, `message`, `errors`)
+- ✅ Error response structure via `ResponseProtocol::failed()` (`status`, `message`, `errors`)
 - ✅ HTTP status codes (200, 201, 400, 404, 422, 500)
 - ✅ Event dispatching on success/error
+- ✅ Default status codes (200 for success, 400 for failed)
+- ✅ Optional message parameter handling
+
+#### Product Model Tests (16 tests)
+- ✅ Implements ProductContract interface
+- ✅ Auto-generates slug from name on creation
+- ✅ Respects manually set slug
+- ✅ hasDiscount() returns false when no discount
+- ✅ hasDiscount() returns false when discount value is zero
+- ✅ hasDiscount() returns true when discount is set
+- ✅ salePrice() is null when no discount
+- ✅ salePrice() calculates correctly for percentage discount
+- ✅ salePrice() calculates correctly for fixed_amount discount
+- ✅ salePrice() never goes below zero for fixed_amount
+- ✅ 100% percentage discount makes product free
+- ✅ salePrice() rounds to two decimal places
+- ✅ Casts discount_type to enum
+- ✅ Casts discount_value to decimal
+- ✅ Casts price to decimal
+- ✅ Casts is_active to boolean
 
 #### Event System Tests (7 tests)
 - ✅ WordPress-style hook registration (`Event::hook()`)
@@ -95,17 +128,22 @@ tests/
 - ✅ Correct middleware assignment (`api`)
 - ✅ Correct URL prefix (`/api/v1`)
 
-### Phase 2: Service Unit Tests (25 tests) ✅
+### Phase 2: Service Unit Tests (38 tests) ✅
 
-#### Brand Service (8 tests)
+#### Brand Service (11 tests)
 - ✅ Get all brands
 - ✅ Get brand by ID
 - ✅ Create brand
 - ✅ Update brand
 - ✅ Delete brand
+- ✅ Query brands with pagination
+- ✅ Uses default limit (15) when not provided
+- ✅ Returns brands ordered by latest
+- ✅ Returns false when updating non-existent brand
+- ✅ Returns false when deleting non-existent brand
 - ✅ Null handling for non-existent brands
 
-#### Category Service (9 tests)
+#### Category Service (8 tests)
 - ✅ Get all categories
 - ✅ Get category by ID
 - ✅ Create category
@@ -113,9 +151,24 @@ tests/
 - ✅ Delete category
 - ✅ Get category children (hierarchical)
 - ✅ Get root categories
-- ✅ Null handling
+- ✅ Root categories have null parent_id
 
-#### Product Image Service (8 tests)
+#### Taxonomy Service (13 tests)
+- ✅ List taxonomies with pagination
+- ✅ Uses default pagination when not provided
+- ✅ Filter taxonomies by taxonomy_type_id
+- ✅ Filter taxonomies by type_slug
+- ✅ Filter taxonomies by parent_id
+- ✅ Filter root taxonomies only
+- ✅ Search taxonomies by name
+- ✅ Loads relationships when listing
+- ✅ Combine multiple filters
+- ✅ Create taxonomy
+- ✅ Update taxonomy
+- ✅ Delete taxonomy
+- ✅ Get active taxonomies
+
+#### Product Image Service (9 tests)
 - ✅ Get images by product ID
 - ✅ Get image by ID
 - ✅ Create product image
@@ -123,11 +176,12 @@ tests/
 - ✅ Delete product image
 - ✅ Set primary image
 - ✅ Get primary image
-- ✅ Ensure only one primary image per product
+- ✅ Only one image can be primary per product
+- ✅ Returns null when no primary image exists
 
-### Phase 3: API Feature Tests (87 tests) ✅
+### Phase 3: API Feature Tests (86 tests) ✅
 
-#### Product API (20 tests)
+#### Product API (16 tests)
 **Listing & Filtering:**
 - ✅ List all products with pagination
 - ✅ Filter by name (search)
@@ -139,15 +193,15 @@ tests/
 
 **CRUD Operations:**
 - ✅ Show single product
-- ✅ Create product with auto-slug generation
+- ✅ Create product
 - ✅ Update product
 - ✅ Delete product (soft delete)
 - ✅ 404 for non-existent products
+- ✅ 404 when deleting non-existent product
 
 **Validation:**
-- ✅ Required fields (name, price, sku)
+- ✅ Required fields (name, price, sku, brand_id)
 - ✅ Unique SKU validation
-- ✅ Sale price must be less than price
 - ✅ Attach categories on creation
 
 #### Brand API (10 tests)
@@ -174,31 +228,47 @@ tests/
 - ✅ Handle empty children array
 - ✅ 404 error handling
 
-#### Taxonomy API (12 tests)
+#### Taxonomy API (11 tests)
 - ✅ List all taxonomies
 - ✅ Show single taxonomy
 - ✅ Create taxonomy
 - ✅ Update taxonomy
 - ✅ Delete taxonomy (soft delete)
 - ✅ Get taxonomies by type
-- ✅ Meta data support (JSON casting)
+- ✅ Create taxonomy with meta data (JSON)
 - ✅ Validate required fields (name, taxonomy_type_id)
 - ✅ Validate taxonomy_type_id exists
 - ✅ 404 error handling
+- ✅ Returns empty array for type with no taxonomies
 
-#### Product Image API (16 tests)
+#### Taxonomy Type API (12 tests)
+- ✅ List all taxonomy types
+- ✅ Show single taxonomy type
+- ✅ Create taxonomy type
+- ✅ Update taxonomy type
+- ✅ Delete taxonomy type (soft delete)
+- ✅ Validate name is required
+- ✅ Validate name is unique
+- ✅ Validate slug is unique
+- ✅ 404 when taxonomy type not found
+- ✅ Filter taxonomy types by search
+- ✅ Paginate taxonomy types
+- ✅ Load taxonomies with taxonomy type
+
+#### Product Image API (13 tests)
 - ✅ List images for product
+- ✅ Returns empty array for product with no images
 - ✅ Show single product image
 - ✅ Create product image
 - ✅ Update product image
 - ✅ Delete product image (soft delete)
 - ✅ Set primary image
+- ✅ Ensure only one image is primary per product
 - ✅ Get primary image
-- ✅ Ensure only one primary image per product
-- ✅ Handle URLs vs relative paths
 - ✅ Validate required fields (product_id, image_url)
-- ✅ Validate product exists
-- ✅ 404 error handling
+- ✅ Validate product exists when creating image
+- ✅ 404 for non-existent image
+- ✅ 404 when no primary image exists
 
 #### Product Taxonomy API (16 tests)
 **Relationship Queries:**
@@ -226,33 +296,49 @@ tests/
 
 ```
 PHPUnit 11.5.44 by Sebastian Bergmann and contributors.
-Tests: 133, Assertions: 472
-Time: ~6 seconds
+Runtime: PHP 8.3.10
+Configuration: phpunit.xml
+
+Tests: 176 passed (595 assertions)
+Duration: ~20 seconds
 Memory: 50 MB
 Status: ✅ ALL PASSING
+```
+
+**Via Orchestra Testbench:**
+```bash
+vendor/bin/testbench package:test
+
+Tests:    176 passed (595 assertions)
+Duration: 20.99s
+Status:   ✅ ALL PASSING
 ```
 
 ### Coverage Summary
 
 | Category | Tests | Status |
 |----------|-------|--------|
-| **Foundation** | 31 | ✅ |
+| **Foundation** | 52 | ✅ |
 | Service Providers | 10 | ✅ |
-| Response Protocol | 10 | ✅ |
+| Response Protocol | 8 | ✅ |
+| Product Model | 16 | ✅ |
 | Event System | 7 | ✅ |
-| Route Loading | 4 | ✅ |
-| **Service Unit** | 25 | ✅ |
-| Brand Service | 8 | ✅ |
-| Category Service | 9 | ✅ |
-| Product Image Service | 8 | ✅ |
-| **API Feature** | 87 | ✅ |
-| Product API | 20 | ✅ |
+| Route Loading | 5 | ✅ |
+| ProductTest (Legacy) | 1 | ✅ |
+| **Service Unit** | 38 | ✅ |
+| Brand Service | 11 | ✅ |
+| Category Service | 8 | ✅ |
+| Taxonomy Service | 13 | ✅ |
+| Product Image Service | 9 | ✅ |
+| **API Feature** | 86 | ✅ |
+| Product API | 16 | ✅ |
 | Brand API | 10 | ✅ |
-| Category API | 13 | ✅ |
-| Taxonomy API | 12 | ✅ |
-| Product Image API | 16 | ✅ |
-| Product Taxonomy API | 16 | ✅ |
-| **TOTAL** | **143** | **✅** |
+| Category API | 12 | ✅ |
+| Taxonomy API | 11 | ✅ |
+| Taxonomy Type API | 12 | ✅ |
+| Product Image API | 13 | ✅ |
+| Product Taxonomy API | 14 | ✅ |
+| **TOTAL** | **176** | **✅** |
 
 ## Test Infrastructure
 
@@ -365,6 +451,8 @@ All API responses follow the ResponseProtocol standard:
 }
 ```
 
+**Note:** Error responses use `ResponseProtocol::failed($errors, $message, $code)` which dispatches `response.error` event.
+
 ## Testing Best Practices
 
 ### 1. Test Isolation
@@ -411,15 +499,20 @@ Brand::create(['name' => 'Nike', 'slug' => 'nike', ...]);
 ## Future Test Additions
 
 ### Phase 4: Additional Service Tests
-- [ ] ProductService full implementation
-- [ ] TaxonomyService tests
+- [ ] ProductService full implementation tests
+- [ ] ProductTaxonomyService unit tests
+- [ ] TaxonomyTypeService unit tests
 - [ ] UtilityService tests
 
-### Phase 5: Model Tests
-- [ ] Product model scopes (isActive, filterByName, etc.)
+### Phase 5: Additional Model Tests
+- [x] Product model (16 tests completed)
+- [ ] Product model scopes (isActive, filterByName, minPrice, maxPrice, etc.)
 - [ ] Product relationships (categories, taxonomies, images)
-- [ ] Category hierarchy tests
-- [ ] Taxonomy parent-child relationships
+- [ ] Brand model tests
+- [ ] Category model tests (hierarchy)
+- [ ] Taxonomy model tests (parent-child relationships)
+- [ ] TaxonomyType model tests
+- [ ] ProductImage model tests
 
 ### Phase 6: Request Validation Tests
 - [ ] All 13 Form Request classes
@@ -500,8 +593,18 @@ php -d memory_limit=512M vendor/bin/phpunit
 ## Conclusion
 
 The Arkenstone Core package has comprehensive test coverage across all layers:
-- **Foundation**: Service providers, events, routes, response protocol
-- **Services**: Business logic isolated from HTTP layer
-- **API**: Full HTTP request/response cycle with validation
+- **Foundation** (52 tests): Service providers, events, routes, response protocol, product model
+- **Services** (38 tests): Business logic isolated from HTTP layer with full CRUD coverage
+- **API** (86 tests): Full HTTP request/response cycle with validation and error handling
 
-All 143 tests are passing, providing confidence in the package's functionality and enabling safe refactoring.
+**All 176 tests are passing with 595 assertions**, providing confidence in the package's functionality and enabling safe refactoring. Tests run in isolated Laravel environment using Orchestra Testbench with SQLite in-memory database for speed and reliability.
+
+**Key Testing Features:**
+- ✅ Interface-based dependency injection testing
+- ✅ Event system validation (WordPress-style hooks)
+- ✅ ResponseProtocol standardization (`success()` and `failed()`)
+- ✅ Comprehensive validation testing
+- ✅ Relationship loading verification
+- ✅ 404 and error response handling
+- ✅ Model attribute casting and computed properties
+- ✅ Hierarchical data structures (categories, taxonomies)
