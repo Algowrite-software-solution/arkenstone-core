@@ -3,72 +3,105 @@
 namespace Arkenstone\Core\ECommerce\Product\Models;
 
 
+use Arkenstone\Core\Database\Factories\ProductFactory;
+use Arkenstone\Core\ECommerce\Contracts\Product\ProductContract;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
-
-class Product extends Model
+class Product extends Model implements ProductContract
 {
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'name',
+        'slug',
+        'description',
+        'price',
+        'sku',
+        'quantity',
+        'discount_type',
+        'discount_value',
+        'brand_id',
+        'is_active',
     ];
 
+    protected $casts = [
+        'price' => 'decimal:2',
+        'is_active' => 'boolean',
+        'discount_value' => 'decimal:2',
+        'discount_type' => \Arkenstone\Core\ECommerce\Product\Enum\DiscountType::class,
+    ];
 
-    // /**
-    //  * Get the brand that owns the product.
-    //  */
-    // public function brand(): BelongsTo
-    // {
-    //     return $this->belongsTo(Brand::class);
-    // }
+    protected static function boot()
+    {
+        parent::boot();
 
-    // /**
-    //  * Get the categories that belong to the product.
-    //  */
-    // public function categories(): BelongsToMany
-    // {
-    //     return $this->belongsToMany(Category::class, 'product_categories');
-    // }
+        static::creating(function ($product) {
+            if (empty($product->slug)) {
+                $product->slug = \Illuminate\Support\Str::slug($product->name);
+            }
+        });
+    }
 
+    /**
+     * Get the brand that owns the product.
+     */
+    public function brand(): BelongsTo
+    {
+        return $this->belongsTo(Brand::class);
+    }
 
-    // /**
-    //  * Get the images for the product.
-    //  */
-    // public function images(): HasMany
-    // {
-    //     return $this->hasMany(ProductImage::class);
-    // }
-
-    // /**
-    //  * Get the primary image for the product.
-    //  */
-    // public function primaryImage(): HasOne
-    // {
-    //     return $this->hasOne(ProductImage::class)->where('is_primary', true)->orderBy('id');
-    // }
-
-    // public function taxonomies(): BelongsToMany
-    // {
-    //     return $this->belongsToMany(Taxonomy::class, 'product_taxonomies')->withTimestamps();
-    // }
-
-    // public function productTaxonomies()
-    // {
-    //     return $this->hasMany(ProductTaxonomy::class);
-    // }
+    /**
+     * Get the categories that belong to the product.
+     */
+    public function categories(): BelongsToMany
+    {
+        return $this->belongsToMany(Category::class, 'product_categories');
+    }
 
 
-    // filters
+    /**
+     * Get the images for the product.
+     */
+    public function images(): HasMany
+    {
+        return $this->hasMany(ProductImage::class);
+    }
 
+    /**
+     * |-----------------------------------------------------------------------------|
+     * |  Get the primary image for the product.                                     |
+     * |-----------------------------------------------------------------------------|
+     */
+    public function primaryImage(): HasOne
+    {
+        return $this->hasOne(ProductImage::class)->where('is_primary', true)->orderBy('id');
+    }
+
+    public function taxonomies(): BelongsToMany
+    {
+        return $this->belongsToMany(Taxonomy::class, 'product_taxonomies')->withTimestamps();
+    }
+
+    public function productTaxonomies()
+    {
+        return $this->hasMany(ProductTaxonomy::class);
+    }
+
+
+    /**
+     * |-----------------------------------------------------------------------------|
+     * |  Scopes for the product model                                               | 
+     * |-----------------------------------------------------------------------------|
+     */
     public function scopeIsActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
@@ -111,10 +144,50 @@ class Product extends Model
         return $query;
     }
 
-    public function scopeByBrand(Builder $query, int $ud): Builder
+    public function scopeByBrand(Builder $query, int $id): Builder
     {
-        return $query->where('brand_id', $ud);
+        return $query->where('brand_id', $id);
     }
 
 
+    /**
+     * |-----------------------------------------------------------------------------|
+     * |  Discount system methods                                                    |
+     * |-----------------------------------------------------------------------------|
+     */
+
+    /**
+     * Check if product has an active discount.
+     */
+    public function hasDiscount(): bool
+    {
+        return $this->discount_type !== null && $this->discount_value > 0;
+    }
+
+    /**
+     * Calculate and return the sale price based on discount type.
+     */
+    public function getSalePriceAttribute(): ?float
+    {
+        if (!$this->hasDiscount()) {
+            return null;
+        }
+
+        return match ($this->discount_type) {
+            \Arkenstone\Core\ECommerce\Product\Enum\DiscountType::PERCENTAGE =>
+            $this->price - ($this->price * ($this->discount_value / 100)),
+            \Arkenstone\Core\ECommerce\Product\Enum\DiscountType::FIXED_AMOUNT =>
+            max(0, $this->price - $this->discount_value),
+            default => null,
+        };
+    }
+
+    /**
+     * Create a new factory instance for the model.
+     */
+
+    protected static function newFactory(): Factory
+    {
+        return ProductFactory::new();
+    }
 }

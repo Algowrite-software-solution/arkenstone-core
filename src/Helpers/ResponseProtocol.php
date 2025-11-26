@@ -12,7 +12,7 @@ class ResponseProtocol
         return response()->json(self::formatResponse("success", $data, null, $message), $code);
     }
 
-    public static function error($errors = null, $message = null, $code = 400)
+    public static function failed($errors = null, $message = null, $code = 400)
     {
         Event::dispatch('response.error', [$errors, $message, $code]);
         return response()->json(self::formatResponse("error", null, $errors, $message), $code);

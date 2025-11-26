@@ -7,6 +7,16 @@ use Orchestra\Testbench\TestCase as OrchestraTestCase;
 
 class TestCase extends OrchestraTestCase
 {
+    /**
+     * Setup the test environment.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Run package migrations
+        $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
+    }
 
     protected function getPackageProviders($app)
     {
@@ -18,18 +28,18 @@ class TestCase extends OrchestraTestCase
 
 
 
-   /**
-    * Get package aliases.
-    *
-    * Optional: If you have a facade
-    *
-    * @param  \Illuminate\Foundation\Application  $app
-    * @return array
-    */
-   protected function getPackageAliases($app)
-   {
-       return [
-           'feature1' => \Arkenstone\Core\Facades\Feature1::class,
-       ];
-   }
+    /**
+     * Get package aliases.
+     *
+     * Optional: If you have a facade
+     *
+     * @param  \Illuminate\Foundation\Application  $app
+     * @return array
+     */
+    protected function getPackageAliases($app)
+    {
+        return [
+            'feature1' => \Arkenstone\Core\Facades\Feature1::class,
+        ];
+    }
 }

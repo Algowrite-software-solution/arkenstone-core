@@ -1,0 +1,73 @@
+<?php
+
+namespace Arkenstone\Core\ECommerce\Product\Services;
+
+use Arkenstone\Core\ECommerce\Contracts\CategoryServiceInterface;
+use Arkenstone\Core\ECommerce\Product\Models\Category;
+use Illuminate\Database\Eloquent\Collection;
+
+class CategoryService implements CategoryServiceInterface
+{
+    public function getName(): string
+    {
+        return "Category Service";
+    }
+
+    public function getAllCategories(): Collection
+    {
+        return Category::all();
+    }
+
+    public function getCategoryById(int $id): ?Category
+    {
+        return Category::find($id);
+    }
+
+    public function createCategory(array $data): Category
+    {
+        return Category::create($data);
+    }
+
+    public function updateCategory(int $id, array $data): bool
+    {
+        $category = Category::find($id);
+
+        if (!$category) {
+            return false;
+        }
+
+        return $category->update($data);
+    }
+
+    public function deleteCategory(int $id): bool
+    {
+        $category = Category::find($id);
+
+        if (!$category) {
+            return false;
+        }
+
+        return $category->delete();
+    }
+
+    public function getActiveCategories(): Collection
+    {
+        return Category::where('is_active', true)->get();
+    }
+
+    public function getCategoryChildren(int $id): Collection
+    {
+        $category = Category::find($id);
+
+        if (!$category) {
+            return new Collection();
+        }
+
+        return $category->children;
+    }
+
+    public function getRootCategories(): Collection
+    {
+        return Category::whereNull('parent_id')->get();
+    }
+}
