@@ -19,7 +19,7 @@ class BrandResource extends JsonResource
             'name' => $this->name,
             'slug' => $this->slug,
             'description' => $this->description,
-            'logo' => $this->logo ? asset('storage/' . $this->logo) : null,
+            'logo_url' => $this->logo_url ? asset('storage/' . $this->logo_url) : null,
             'is_active' => $this->is_active,
             'products_count' => $this->when($this->relationLoaded('products'), fn() => $this->products->count()),
             'created_at' => $this->created_at?->toISOString(),
