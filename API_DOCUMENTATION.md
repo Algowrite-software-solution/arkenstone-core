@@ -478,7 +478,7 @@ All API responses follow a standardized format using `ResponseProtocol`:
   "name": "Apple",
   "slug": "apple",
   "description": "Think Different",
-  "logo": "brands/apple-logo.png",
+  "logo_url": "brands/apple-logo.png",
   "is_active": true
 }
 ```
@@ -521,7 +521,7 @@ All API responses follow a standardized format using `ResponseProtocol`:
     "name": "Apple",
     "slug": "apple",
     "description": "Think Different",
-    "logo": "brands/apple-logo.png",
+    "logo_url": "brands/apple-logo.png",
     "is_active": true,
     "created_at": "2024-01-01T00:00:00.000000Z",
     "updated_at": "2024-01-01T00:00:00.000000Z"
@@ -693,14 +693,29 @@ All API responses follow a standardized format using `ResponseProtocol`:
 **Response (201):**
 ```json
 {
-  "status": "success",
-  "message": "Category created successfully",
-  "data": {
-    "id": 2,
-    "name": "Laptops",
-    "slug": "laptops",
-    "parent_id": 1
-  }
+    "status": "success",
+    "message": "Category created successfully",
+    "data": {
+        "id": 2,
+        "name": "Laptops 2",
+        "slug": "laptops 2",
+        "description": "Portable computers 2",
+        "parent_id": 1,
+        "is_active": true,
+        "parent": {
+            "id": 1,
+            "name": "Laptops",
+            "slug": "laptops",
+            "description": "Portable computers",
+            "parent_id": null,
+            "is_active": true,
+            "created_at": "2025-11-26T21:20:26.000000Z",
+            "updated_at": "2025-11-26T21:20:26.000000Z"
+        },
+        "children": [],
+        "created_at": "2025-11-26T21:21:25.000000Z",
+        "updated_at": "2025-11-26T21:21:25.000000Z"
+    }
 }
 ```
 
