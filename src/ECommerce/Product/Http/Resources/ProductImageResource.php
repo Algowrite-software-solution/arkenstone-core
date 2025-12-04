@@ -16,7 +16,8 @@ class ProductImageResource extends JsonResource
     {
         $imageUrl = $this->image_url;
         if ($imageUrl && !filter_var($imageUrl, FILTER_VALIDATE_URL)) {
-            $imageUrl = asset('storage/' . $imageUrl);
+            // Return relative path with 'storage/' prefix
+            $imageUrl = 'storage/' . ltrim($imageUrl, '/');
         }
 
         return [
