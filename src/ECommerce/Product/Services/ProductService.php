@@ -60,12 +60,25 @@ class ProductService implements ProductServiceInterface
    {
       return DB::transaction(function () use ($data) {
          $data["slug"] = Str::slug($data["name"]); // create a slug
+
+         // Extract image-related fields before creating product
+         $uploadedImages = $data['uploaded_images'] ?? [];
+         $imageMetadata = [
+            'alt_texts' => $data['image_alt_texts'] ?? [],
+            'sort_orders' => $data['image_sort_orders'] ?? [],
+            'primary_index' => $data['primary_image_index'] ?? null,
+         ];
+
+         // Remove image fields from product data
+         unset($data['uploaded_images'], $data['image_alt_texts'], $data['image_sort_orders'], $data['primary_image_index']);
+
          $product = Product::create($data);
 
          if (!empty($data['category_ids'])) {
             $product->categories()->attach($data['category_ids']);
          }
 
+         // Handle pre-uploaded images (existing behavior)
          if (!empty($data['images'])) {
             Log::info("Uploaded Images", [$data['images']]);
 
@@ -79,27 +92,62 @@ class ProductService implements ProductServiceInterface
             }
          }
 
+         // Handle file uploads (new behavior)
+         if (!empty($uploadedImages)) {
+            $this->addImages($uploadedImages, $product->id, $imageMetadata);
+         }
+
          ProductCreated::dispatch($product);
 
-         return $product;
+         return $product->fresh(['images', 'primaryImage']);
       });
    }
 
    public function update(ProductContract|Product $product, array $data): ProductContract
    {
       return DB::transaction(function () use ($product, $data) {
+         // Extract image-related fields
+         $uploadedImages = $data['uploaded_images'] ?? [];
+         $deleteImageIds = $data['delete_image_ids'] ?? [];
+         $imageMetadata = [
+            'alt_texts' => $data['image_alt_texts'] ?? [],
+            'sort_orders' => $data['image_sort_orders'] ?? [],
+            'primary_index' => $data['primary_image_index'] ?? null,
+         ];
+
+         // Remove image fields from product data
+         unset($data['uploaded_images'], $data['image_alt_texts'], $data['image_sort_orders'], $data['primary_image_index'], $data['delete_image_ids']);
+
          $product->update($data);
 
          if (isset($data['category_ids'])) {
             $product->categories()->sync($data['category_ids']);
          }
 
+         // Delete specified images
+         if (!empty($deleteImageIds)) {
+            foreach ($deleteImageIds as $imageId) {
+               $image = ProductImage::where('id', $imageId)
+                  ->where('product_id', $product->id)
+                  ->first();
+               if ($image) {
+                  $this->deleteImage($imageId);
+               }
+            }
+         }
+
+         // Handle existing images metadata updates
          if (isset($data['images'])) {
             $existingImageIds = collect($data['images'])->pluck('id')->filter()->toArray();
             $product->images()->whereNotIn('id', $existingImageIds)->delete();
             foreach ($data['images'] as $imageData) {
                $product->images()->updateOrCreate(['id' => $imageData['id'] ?? null], $imageData);
             }
+         }
+
+         // Handle new file uploads
+         if (!empty($uploadedImages)) {
+            $this->addImages($uploadedImages, $product->id, $imageMetadata);
          }
 
          if (isset($data['variants'])) {
@@ -114,7 +162,7 @@ class ProductService implements ProductServiceInterface
          }
 
          ProductUpdated::dispatch($product->fresh());
-         return $product->fresh();
+         return $product->fresh(['images', 'primaryImage']);
       });
    }
 
@@ -155,23 +203,66 @@ class ProductService implements ProductServiceInterface
       }
    }
 
-   public function addImages(array $images): Collection
+   /**
+    * Add multiple images to a product.
+    *
+    * @param array $images Array of UploadedFile instances
+    * @param int|null $productId Product ID to associate images with
+    * @param array $metadata Optional metadata (alt_texts, sort_orders, primary_index)
+    * @return Collection Collection of created ProductImage models
+    */
+   public function addImages(array $images, ?int $productId = null, array $metadata = []): Collection
    {
       $createdImages = new Collection();
+      $config = config('arkenstone.product_images');
+      $disk = $config['disk'] ?? 'public';
+      $path = $config['path'] ?? 'products/images';
+      $useUniqueFilenames = $config['unique_filenames'] ?? true;
 
-      DB::transaction(function () use ($images, &$createdImages) {
-         foreach ($images as $imageFile) {
+      DB::transaction(function () use ($images, $productId, $metadata, $disk, $path, $useUniqueFilenames, &$createdImages) {
+         foreach ($images as $index => $imageFile) {
             if ($imageFile instanceof UploadedFile) {
-               // Store the file and get its relative path. This is what we save.
-               $path = $imageFile->store('products', 'public');
+               // Store the file and get its relative path
+               if ($useUniqueFilenames) {
+                  $storedPath = $imageFile->store($path, $disk);
+               } else {
+                  $originalName = $imageFile->getClientOriginalName();
+                  $storedPath = $imageFile->storeAs($path, $originalName, $disk);
+               }
 
-               // Create the database record for the image.
-               $newImage = ProductImage::create([
-                  'url' => $path, // <-- STORE THE RELATIVE PATH, NOT THE FULL URL
+               // Prepare image data
+               $imageData = [
+                  'image_url' => $storedPath, // Fixed: was 'url', now 'image_url'
                   'is_primary' => false,
-               ]);
+               ];
+
+               // Add product_id if provided
+               if ($productId !== null) {
+                  $imageData['product_id'] = $productId;
+               }
+
+               // Add alt_text if provided
+               if (isset($metadata['alt_texts'][$index])) {
+                  $imageData['alt_text'] = $metadata['alt_texts'][$index];
+               }
+
+               // Add sort_order if provided
+               if (isset($metadata['sort_orders'][$index])) {
+                  $imageData['sort_order'] = $metadata['sort_orders'][$index];
+               }
+
+               // Create the database record for the image
+               $newImage = ProductImage::create($imageData);
 
                $createdImages->push($newImage);
+            }
+         }
+
+         // Set primary image if specified
+         if (isset($metadata['primary_index']) && $createdImages->isNotEmpty()) {
+            $primaryIndex = $metadata['primary_index'];
+            if (isset($createdImages[$primaryIndex])) {
+               $createdImages[$primaryIndex]->update(['is_primary' => true]);
             }
          }
       });
@@ -188,8 +279,12 @@ class ProductService implements ProductServiceInterface
 
       $image = ProductImage::find($image_id);
 
-      // The relative path is now stored directly in the 'url' property.
-      $path = $image->getUrl(); // This returns the relative path
+      if (!$image) {
+         return false;
+      }
+
+      // The relative path is stored in the 'image_url' property
+      $path = $image->image_url;
 
       // Delete the physical file from storage.
       if (Storage::disk('public')->exists($path)) {

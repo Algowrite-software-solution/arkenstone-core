@@ -3,6 +3,34 @@
 return [
     'enabled' => env('ARKENSTONE_CORE_ENABLED', true),
     'default_prefix' => env('ARKENSTONE_CORE_PREFIX', '[ARKENSTONE_CORE]'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Product Image Storage Configuration
+    |--------------------------------------------------------------------------
+    */
+    'product_images' => [
+        // Storage disk (matches config/filesystems.php disks)
+        'disk' => env('ARKENSTONE_IMAGE_DISK', 'public'),
+
+        // Base path within the disk
+        'path' => env('ARKENSTONE_IMAGE_PATH', 'products/images'),
+
+        // Maximum file size in KB
+        'max_size' => env('ARKENSTONE_IMAGE_MAX_SIZE', 5120), // 5MB
+
+        // Allowed MIME types
+        'allowed_types' => ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+
+        // Generate unique filenames (prevents overwrites)
+        'unique_filenames' => true,
+
+        // Image optimization settings
+        'optimize' => [
+            'enabled' => env('ARKENSTONE_IMAGE_OPTIMIZE', true),
+            'quality' => 85, // JPEG quality
+        ],
+    ],
 ];
 
 

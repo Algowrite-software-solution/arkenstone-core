@@ -28,6 +28,16 @@ class ProductFactory extends Factory
             'name' => $name,
             'slug' => Str::slug($name),
             'description' => $this->faker->paragraph(),
+            'minified_description' => $this->faker->sentence(10),
+            'details' => [
+                'specifications' => [
+                    'weight' => $this->faker->randomFloat(2, 0.1, 10) . ' kg',
+                    'dimensions' => $this->faker->randomNumber(2) . 'x' . $this->faker->randomNumber(2) . 'x' . $this->faker->randomNumber(2) . ' cm',
+                    'material' => $this->faker->randomElement(['Plastic', 'Metal', 'Wood', 'Glass', 'Fabric']),
+                ],
+                'features' => $this->faker->sentences(3),
+                'warranty' => $this->faker->randomElement(['1 year', '2 years', '3 years', 'Lifetime']),
+            ],
             'sku' => strtoupper($this->faker->bothify('SKU-####-????')),
             'price' => $price,
             'discount_type' => null,
