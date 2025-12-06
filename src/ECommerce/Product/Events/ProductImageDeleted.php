@@ -2,6 +2,7 @@
 namespace Arkenstone\Core\ECommerce\Product\Events;
 
 use Arkenstone\Core\ECommerce\Contracts\Product\ProductImageContract;
+use Arkenstone\Core\ECommerce\Product\Models\ProductImage;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
@@ -18,22 +19,22 @@ class ProductImageDeleted
      * we might need access to its original attributes (like product_id)
      * which are still available on the model object in memory.
      */
-    public ProductImageContract $image;
+    public ProductImageContract|ProductImage $image;
 
     /**
      * Create a new event instance.
      *
-     * @param \Arkenstone\Core\ECommerce\Contracts\Product\ProductImageContract $image
+     * @param \Arkenstone\Core\ECommerce\Contracts\Product\ProductImageContract|\Arkenstone\Core\ECommerce\Product\Models\ProductImage $image
      * @return void
      */
-    public function __construct(ProductImageContract $image)
+    public function __construct(ProductImageContract|ProductImage $image)
     {
         $this->image = $image;
 
         Log::info("Product Image Deleted Event: An image was deleted.", [
             'image_id' => $this->image->id,
             'product_id' => $this->image->product_id, // Useful for context
-            'path' => $this->image->getUrl(), // The relative path of the deleted file
+            'path' => $this->image->image_url, // The relative path of the deleted file
         ]);
 
         // You could add listeners to this event to:

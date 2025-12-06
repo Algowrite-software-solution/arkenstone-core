@@ -35,12 +35,21 @@ class ProductImage extends Model
     }
 
     /**
-     * Get the public URL of the product image.
+     * Get the public URL of the product image (absolute URL).
      */
     public function getPublicUrl(): string
     {
         // Assuming images are stored in a public storage disk
         return asset('storage/' . ltrim($this->image_url, '/'));
+    }
+
+    /**
+     * Get the relative URL path of the product image.
+     * Returns format: storage/products/images/filename.jpg
+     */
+    public function getRelativeUrl(): string
+    {
+        return 'storage/' . ltrim($this->image_url, '/');
     }
 
     /**

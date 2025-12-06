@@ -1,9 +1,9 @@
 # Arkenstone Core - API Documentation
 
-**Version:** 0.1.0  
+**Version:** 0.2.0  
 **Base URL:** `/api/v1`  
 **Author:** Algowrite  
-**Last Updated:** November 26, 2025
+**Last Updated:** December 4, 2025
 
 ---
 
@@ -194,7 +194,7 @@ All API responses follow a standardized format using `ResponseProtocol`:
         "images": [
           {
             "id": 1,
-            "image_url": "http://example.com/storage/products/macbook-1.jpg",
+            "image_url": "storage/products/images/macbook-1.jpg",
             "alt_text": "MacBook Pro front view",
             "is_primary": true
           }
@@ -223,6 +223,20 @@ All API responses follow a standardized format using `ResponseProtocol`:
   "name": "MacBook Pro 16\"",
   "slug": "macbook-pro-16",
   "description": "Powerful laptop for professionals",
+  "minified_description": "Powerful 16-inch laptop with M2 Pro chip",
+  "details": {
+    "specifications": {
+      "processor": "Apple M2 Pro",
+      "memory": "16GB unified memory",
+      "storage": "512GB SSD"
+    },
+    "features": [
+      "Liquid Retina XDR display",
+      "Up to 22 hours battery life",
+      "Three Thunderbolt 4 ports"
+    ],
+    "warranty": "1 year limited warranty"
+  },
   "price": 2499.99,
   "sku": "MBP-16-2023",
   "quantity": 15,
@@ -231,7 +245,11 @@ All API responses follow a standardized format using `ResponseProtocol`:
   "discount_type": "percentage",
   "discount_value": 10,
   "category_ids": [1, 2],
-  "taxonomy_ids": [5, 6, 7]
+  "taxonomy_ids": [5, 6, 7],
+  "uploaded_images": ["<file>", "<file>"],
+  "image_alt_texts": ["MacBook Pro front view", "MacBook Pro side view"],
+  "image_sort_orders": [1, 2],
+  "primary_image_index": 0
 }
 ```
 
@@ -241,6 +259,8 @@ All API responses follow a standardized format using `ResponseProtocol`:
 | `name` | string | Yes | max:255 |
 | `slug` | string | Yes | max:255, unique:products |
 | `description` | text | No | - |
+| `minified_description` | string | No | max:500 |
+| `details` | array | No | - |
 | `price` | decimal | Yes | numeric, min:0 |
 | `sku` | string | Yes | max:255, unique:products |
 | `quantity` | integer | No | integer, min:0 |
@@ -252,6 +272,10 @@ All API responses follow a standardized format using `ResponseProtocol`:
 | `category_ids.*` | integer | No | exists:categories,id |
 | `taxonomy_ids` | array | No | array |
 | `taxonomy_ids.*` | integer | No | exists:taxonomies,id |
+| `uploaded_images` | array | No | array of files (jpg,jpeg,png,gif,webp), max:2048KB |
+| `image_alt_texts` | array | No | array, matches uploaded_images length |
+| `image_sort_orders` | array | No | array of integers |
+| `primary_image_index` | integer | No | integer, within uploaded_images range |
 
 **Response (201):**
 ```json
@@ -262,9 +286,41 @@ All API responses follow a standardized format using `ResponseProtocol`:
     "id": 1,
     "name": "MacBook Pro 16\"",
     "slug": "macbook-pro-16",
+    "description": "Powerful laptop for professionals",
+    "minified_description": "Powerful 16-inch laptop with M2 Pro chip",
+    "details": {
+      "specifications": {
+        "processor": "Apple M2 Pro",
+        "memory": "16GB unified memory",
+        "storage": "512GB SSD"
+      },
+      "features": [
+        "Liquid Retina XDR display",
+        "Up to 22 hours battery life",
+        "Three Thunderbolt 4 ports"
+      ],
+      "warranty": "1 year limited warranty"
+    },
     "price": "2499.99",
     "sale_price": "2249.99",
-    // ... full product data
+    "images": [
+      {
+        "id": 1,
+        "product_id": 1,
+        "image_url": "storage/products/images/macbook-1.jpg",
+        "alt_text": "MacBook Pro front view",
+        "is_primary": true,
+        "sort_order": 1
+      },
+      {
+        "id": 2,
+        "product_id": 1,
+        "image_url": "storage/products/images/macbook-2.jpg",
+        "alt_text": "MacBook Pro side view",
+        "is_primary": false,
+        "sort_order": 2
+      }
+    ]
   }
 }
 ```
@@ -298,6 +354,20 @@ All API responses follow a standardized format using `ResponseProtocol`:
     "name": "MacBook Pro 16\"",
     "slug": "macbook-pro-16",
     "description": "Powerful laptop for professionals",
+    "minified_description": "Powerful 16-inch laptop with M2 Pro chip",
+    "details": {
+      "specifications": {
+        "processor": "Apple M2 Pro",
+        "memory": "16GB unified memory",
+        "storage": "512GB SSD"
+      },
+      "features": [
+        "Liquid Retina XDR display",
+        "Up to 22 hours battery life",
+        "Three Thunderbolt 4 ports"
+      ],
+      "warranty": "1 year limited warranty"
+    },
     "price": "2499.99",
     "sale_price": "2249.99",
     "sku": "MBP-16-2023",
@@ -338,7 +408,7 @@ All API responses follow a standardized format using `ResponseProtocol`:
     "images": [
       {
         "id": 1,
-        "image_url": "http://example.com/storage/products/macbook-1.jpg",
+        "image_url": "storage/products/images/macbook-1.jpg",
         "alt_text": "MacBook Pro front view",
         "is_primary": true,
         "sort_order": 1
@@ -346,7 +416,7 @@ All API responses follow a standardized format using `ResponseProtocol`:
     ],
     "primary_image": {
       "id": 1,
-      "image_url": "http://example.com/storage/products/macbook-1.jpg",
+      "image_url": "storage/products/images/macbook-1.jpg",
       "alt_text": "MacBook Pro front view"
     }
   }
@@ -373,13 +443,26 @@ All API responses follow a standardized format using `ResponseProtocol`:
 ```json
 {
   "name": "MacBook Pro 16\" M3",
+  "minified_description": "Updated powerful laptop with M3 chip",
+  "details": {
+    "specifications": {
+      "processor": "Apple M3 Pro",
+      "memory": "32GB unified memory",
+      "storage": "1TB SSD"
+    }
+  },
   "price": 2699.99,
   "quantity": 20,
   "is_active": true,
   "discount_type": "fixed_amount",
   "discount_value": 200,
   "category_ids": [1, 2, 3],
-  "taxonomy_ids": [5, 6]
+  "taxonomy_ids": [5, 6],
+  "delete_image_ids": [3, 4],
+  "uploaded_images": ["<file>"],
+  "image_alt_texts": ["New product image"],
+  "image_sort_orders": [1],
+  "primary_image_index": 0
 }
 ```
 
@@ -1167,7 +1250,7 @@ Taxonomy Types define the categories of taxonomies (e.g., Color, Size, Material)
     {
       "id": 1,
       "product_id": 1,
-      "image_url": "http://example.com/storage/products/image-1.jpg",
+      "image_url": "storage/products/images/image-1.jpg",
       "alt_text": "Product front view",
       "is_primary": true,
       "sort_order": 1,
@@ -1210,7 +1293,7 @@ Taxonomy Types define the categories of taxonomies (e.g., Color, Size, Material)
   "data": {
     "id": 1,
     "product_id": 1,
-    "image_url": "http://example.com/storage/products/macbook-front.jpg",
+    "image_url": "storage/products/images/macbook-front.jpg",
     "alt_text": "MacBook Pro front view",
     "is_primary": true,
     "sort_order": 1
@@ -1231,7 +1314,7 @@ Taxonomy Types define the categories of taxonomies (e.g., Color, Size, Material)
   "data": {
     "id": 1,
     "product_id": 1,
-    "image_url": "http://example.com/storage/products/macbook-front.jpg",
+    "image_url": "storage/products/images/macbook-front.jpg",
     "alt_text": "MacBook Pro front view",
     "is_primary": true,
     "sort_order": 1,
@@ -1318,7 +1401,7 @@ Taxonomy Types define the categories of taxonomies (e.g., Color, Size, Material)
   "data": {
     "id": 1,
     "product_id": 1,
-    "image_url": "http://example.com/storage/products/macbook-front.jpg",
+    "image_url": "storage/products/images/macbook-front.jpg",
     "alt_text": "MacBook Pro front view",
     "is_primary": true
   }
@@ -1330,6 +1413,103 @@ Taxonomy Types define the categories of taxonomies (e.g., Color, Size, Material)
 {
   "status": "error",
   "message": "Primary image not found",
+  "errors": null
+}
+```
+
+---
+
+#### 8. Upload Product Images
+**Endpoint:** `POST /api/v1/products/{productId}/images/upload`
+
+**Description:** Upload multiple images for a product using multipart/form-data.
+
+**Authentication:** Required
+
+**Content-Type:** `multipart/form-data`
+
+**Request Parameters:**
+
+| Parameter       | Type    | Required | Description                                        |
+|----------------|---------|----------|----------------------------------------------------|
+| `images`       | array   | required | Array of image files (jpg, jpeg, png, gif, webp)   |
+| `alt_texts`    | array   | optional | Alt text for each image (matches images order)     |
+| `sort_orders`  | array   | optional | Sort order for each image                          |
+| `primary_index`| integer | optional | Index of primary image (0-based)                   |
+
+**Validation Rules:**
+- Each image file must be: jpg, jpeg, png, gif, or webp
+- Maximum file size: 2048KB (2MB) per image
+- `alt_texts` length must match `images` length if provided
+- `sort_orders` length must match `images` length if provided
+- `primary_index` must be within the range of uploaded images
+
+**Example Request:**
+
+```bash
+curl -X POST "http://your-domain.com/api/v1/products/1/images/upload" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "images[]=@/path/to/image1.jpg" \
+  -F "images[]=@/path/to/image2.jpg" \
+  -F "alt_texts[]=Product front view" \
+  -F "alt_texts[]=Product side view" \
+  -F "sort_orders[]=1" \
+  -F "sort_orders[]=2" \
+  -F "primary_index=0"
+```
+
+**Success Response (201 Created):**
+
+```json
+{
+  "status": "success",
+  "message": "Images uploaded successfully",
+  "data": {
+    "uploaded_images": [
+      {
+        "id": 5,
+        "product_id": 1,
+        "image_url": "storage/products/images/product-5.jpg",
+        "alt_text": "Product front view",
+        "sort_order": 1,
+        "is_primary": true,
+        "created_at": "2024-01-15T10:30:00.000000Z",
+        "updated_at": "2024-01-15T10:30:00.000000Z"
+      },
+      {
+        "id": 6,
+        "product_id": 1,
+        "image_url": "storage/products/images/product-6.jpg",
+        "alt_text": "Product side view",
+        "sort_order": 2,
+        "is_primary": false,
+        "created_at": "2024-01-15T10:30:00.000000Z",
+        "updated_at": "2024-01-15T10:30:00.000000Z"
+      }
+    ]
+  }
+}
+```
+
+**Error Response (422 Unprocessable Entity):**
+
+```json
+{
+  "status": "error",
+  "message": "Validation failed",
+  "errors": {
+    "images.0": ["The image must be a file of type: jpg, jpeg, png, gif, webp."],
+    "images.1": ["The image may not be greater than 2048 kilobytes."]
+  }
+}
+```
+
+**Error Response (404 Not Found):**
+
+```json
+{
+  "status": "error",
+  "message": "Product not found",
   "errors": null
 }
 ```
@@ -1554,6 +1734,8 @@ Manage many-to-many relationships between products and taxonomies.
 | `name` | string(255) | No | Product name |
 | `slug` | string(255) | No | URL-friendly identifier (unique) |
 | `description` | text | Yes | Product description |
+| `minified_description` | string(500) | Yes | Short product summary (max 500 characters) |
+| `details` | json | Yes | Structured product details (specifications, features, warranty) |
 | `price` | decimal(10,2) | No | Base price |
 | `sku` | string(255) | No | Stock Keeping Unit (unique) |
 | `quantity` | integer | No | Available quantity (default: 0) |
@@ -1690,7 +1872,7 @@ Manage many-to-many relationships between products and taxonomies.
 |-------|------|----------|-------------|
 | `id` | bigint | No | Primary key |
 | `product_id` | bigint | No | Foreign key to products |
-| `image_url` | string(255) | No | Image file path |
+| `image_url` | string(255) | No | Relative path to image (e.g., storage/products/images/image.jpg) |
 | `alt_text` | string(255) | Yes | Alt text for accessibility |
 | `is_primary` | boolean | No | Primary image flag (default: false) |
 | `sort_order` | integer | Yes | Display order |

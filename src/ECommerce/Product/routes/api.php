@@ -35,6 +35,7 @@ Route::prefix('api/v1')->middleware('api')->group(function () {
 
     // Product Images
     Route::get('products/{productId}/images', [V1\ProductImageController::class, 'index'])->name('products.images.index');
+    Route::post('products/{productId}/images/upload', [V1\ProductImageController::class, 'upload'])->name('products.images.upload');
     Route::post('product-images', [V1\ProductImageController::class, 'store'])->name('product-images.store');
     Route::get('product-images/{id}', [V1\ProductImageController::class, 'show'])->name('product-images.show');
     Route::put('product-images/{id}', [V1\ProductImageController::class, 'update'])->name('product-images.update');

@@ -24,6 +24,8 @@ class Product extends Model implements ProductContract
         'name',
         'slug',
         'description',
+        'minified_description',
+        'details',
         'price',
         'sku',
         'quantity',
@@ -38,6 +40,7 @@ class Product extends Model implements ProductContract
         'is_active' => 'boolean',
         'discount_value' => 'decimal:2',
         'discount_type' => \Arkenstone\Core\ECommerce\Product\Enum\DiscountType::class,
+        'details' => 'array',
     ];
 
     protected static function boot()

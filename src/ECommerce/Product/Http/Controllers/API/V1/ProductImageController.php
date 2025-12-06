@@ -3,8 +3,10 @@
 namespace Arkenstone\Core\ECommerce\Product\Http\Controllers\API\V1;
 
 use Arkenstone\Core\ECommerce\Contracts\ProductImageServiceInterface;
+use Arkenstone\Core\ECommerce\Contracts\ProductServiceInterface;
 use Arkenstone\Core\ECommerce\Product\Http\Requests\StoreProductImageRequest;
 use Arkenstone\Core\ECommerce\Product\Http\Requests\UpdateProductImageRequest;
+use Arkenstone\Core\ECommerce\Product\Http\Requests\UploadProductImagesRequest;
 use Arkenstone\Core\ECommerce\Product\Http\Resources\ProductImageResource;
 use Arkenstone\Core\ECommerce\Product\Services\ProductImageService;
 use Arkenstone\Core\Helpers\ResponseProtocol;
@@ -14,8 +16,10 @@ use Illuminate\Routing\Controller;
 
 class ProductImageController extends Controller
 {
-    public function __construct(private ProductImageServiceInterface $productImageService)
-    {
+    public function __construct(
+        private ProductImageServiceInterface $productImageService,
+        private ProductServiceInterface $productService
+    ) {
     }
 
     /**
@@ -155,6 +159,52 @@ class ProductImageController extends Controller
         return ResponseProtocol::success(
             new ProductImageResource($image),
             'Primary image retrieved successfully'
+        );
+    }
+
+    /**
+     * Upload multiple images for a product.
+     */
+    public function upload(UploadProductImagesRequest $request, int $productId): JsonResponse
+    {
+        // Verify product exists
+        $product = $this->productService->find($productId);
+        if (!$product) {
+            return ResponseProtocol::failed(
+                null,
+                'Product not found',
+                404
+            );
+        }
+
+        $validated = $request->validated();
+
+        // Prepare metadata for images
+        $metadata = [
+            'alt_texts' => $validated['alt_texts'] ?? [],
+            'sort_orders' => $validated['sort_orders'] ?? [],
+            'primary_index' => $validated['primary_index'] ?? null,
+        ];
+
+        // Upload images using ProductService
+        $uploadedImages = $this->productService->addImages(
+            $validated['images'],
+            $productId,
+            $metadata
+        );
+
+        if ($uploadedImages->isEmpty()) {
+            return ResponseProtocol::failed(
+                null,
+                'Failed to upload images',
+                500
+            );
+        }
+
+        return ResponseProtocol::success(
+            ProductImageResource::collection($uploadedImages),
+            'Images uploaded successfully',
+            201
         );
     }
 }
