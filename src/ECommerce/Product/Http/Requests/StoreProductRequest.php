@@ -27,24 +27,24 @@ class StoreProductRequest extends FormRequest
 
         return [
             'name' => ['required', 'string', 'max:255'],
-            'slug' => ['nullable', 'string', 'max:255', 'unique:products,slug'],
-            'description' => ['nullable', 'string'],
-            'minified_description' => ['nullable', 'string', 'max:500'],
-            'details' => ['nullable', 'array'],
-            'price' => ['required', 'numeric', 'min:0'],
-            'discount_type' => ['nullable', 'in:percentage,fixed_amount'],
-            'discount_value' => ['nullable', 'numeric', 'min:0', 'required_with:discount_type'],
-            'sku' => ['required', 'string', 'max:100', 'unique:products,sku'],
-            'quantity' => ['nullable', 'integer', 'min:0'],
-            'brand_id' => ['nullable', 'integer', 'exists:brands,id'],
-            'is_active' => ['nullable', 'boolean'],
-            'category_ids' => ['nullable', 'array'],
+            'slug' => ['sometimes', 'nullable', 'string', 'max:255', 'unique:products,slug'],
+            'description' => ['sometimes', 'nullable', 'string'],
+            'minified_description' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'details' => ['sometimes',  'nullable', 'array'],
+            'price' => ['sometimes', 'nullable','numeric', 'min:0'],
+            'discount_type' => ['sometimes', 'nullable', 'in:percentage,fixed_amount'],
+            'discount_value' => ['sometimes', 'nullable', 'numeric', 'min:0', 'required_with:discount_type'],
+            'sku' => ['sometimes', 'nullable', 'string', 'max:100', 'unique:products,sku'],
+            'quantity' => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'brand_id' => ['sometimes', 'nullable', 'integer', 'exists:brands,id'],
+            'is_active' => ['sometimes', 'boolean'],
+            'category_ids' => ['sometimes', 'nullable', 'array'],
             'category_ids.*' => ['integer', 'exists:categories,id'],
-            'taxonomy_ids' => ['nullable', 'array'],
+            'taxonomy_ids' => ['sometimes', 'nullable', 'array'],
             'taxonomy_ids.*' => ['integer', 'exists:taxonomies,id'],
 
             // Image upload fields
-            'uploaded_images' => ['nullable', 'array'],
+            'uploaded_images' => ['sometimes', 'nullable', 'array'],
             'uploaded_images.*' => [
                 'required',
                 'file',
@@ -52,11 +52,11 @@ class StoreProductRequest extends FormRequest
                 'max:' . $maxSize,
                 'mimes:' . implode(',', $allowedMimes),
             ],
-            'image_alt_texts' => ['nullable', 'array'],
-            'image_alt_texts.*' => ['nullable', 'string', 'max:255'],
-            'image_sort_orders' => ['nullable', 'array'],
-            'image_sort_orders.*' => ['nullable', 'integer', 'min:0'],
-            'primary_image_index' => ['nullable', 'integer', 'min:0'],
+            'image_alt_texts' => ['sometimes', 'nullable', 'array'],
+            'image_alt_texts.*' => ['string', 'max:255'],
+            'image_sort_orders' => ['sometimes', 'nullable', 'array'],
+            'image_sort_orders.*' => ['integer', 'min:0'],
+            'primary_image_index' => ['sometimes', 'integer', 'min:0'],
         ];
     }
 
@@ -71,7 +71,6 @@ class StoreProductRequest extends FormRequest
             'name.required' => 'Product name is required.',
             'minified_description.max' => 'Minified description must not exceed 500 characters.',
             'details.array' => 'Details must be a valid array.',
-            'price.required' => 'Product price is required.',
             'price.min' => 'Product price must be greater than or equal to 0.',
             'discount_type.in' => 'Discount type must be either percentage or fixed_amount.',
             'discount_value.required_with' => 'Discount value is required when discount type is set.',
@@ -106,6 +105,7 @@ class StoreProductRequest extends FormRequest
             'image/png' => 'png',
             'image/webp' => 'webp',
             'image/gif' => 'gif',
+            // add more if needed
         ];
 
         foreach ($mimeTypes as $mime) {
