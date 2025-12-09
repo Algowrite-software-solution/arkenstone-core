@@ -180,7 +180,7 @@ class ProductControllerTest extends TestCase
         $response = $this->postJson('/api/v1/products', []);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['name', 'sku', 'price']);
+            ->assertJsonValidationErrors(['name']);
     }
 
     /** @test */

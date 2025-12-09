@@ -15,8 +15,8 @@ return new class extends Migration {
             $table->string('name');
             $table->string('slug')->unique();
             $table->text('description')->nullable();
-            $table->string('sku')->unique();
-            $table->decimal('price', 10, 2);
+            $table->string('sku')->unique()->nullable();
+            $table->decimal('price', 10, 2)->nullable();
             $table->decimal('sale_price', 10, 2)->nullable();
             $table->integer('stock_quantity')->default(0);
             $table->foreignId('brand_id')->nullable()->constrained('brands')->onDelete('set null');
