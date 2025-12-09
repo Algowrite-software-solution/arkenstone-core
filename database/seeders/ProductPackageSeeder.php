@@ -31,21 +31,21 @@ class ProductPackageSeeder extends Seeder
      */
     public function run(): void
     {
-        // Disable foreign key checks for truncating
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        // // Disable foreign key checks for truncating
+        // DB::statement('SET FOREIGN_KEY_CHECKS=0;');
         
-        // Truncate all tables (idempotent seeding)
-        DB::table('product_taxonomies')->truncate();
-        DB::table('product_categories')->truncate();
-        DB::table('product_images')->truncate();
-        DB::table('products')->truncate();
-        DB::table('taxonomies')->truncate();
-        DB::table('taxonomy_types')->truncate();
-        DB::table('categories')->truncate();
-        DB::table('brands')->truncate();
+        // // Truncate all tables (idempotent seeding)
+        // DB::table('product_taxonomies')->truncate();
+        // DB::table('product_categories')->truncate();
+        // DB::table('product_images')->truncate();
+        // DB::table('products')->truncate();
+        // DB::table('taxonomies')->truncate();
+        // DB::table('taxonomy_types')->truncate();
+        // DB::table('categories')->truncate();
+        // DB::table('brands')->truncate();
         
-        // Re-enable foreign key checks
-        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        // // Re-enable foreign key checks
+        // DB::statement('SET FOREIGN_KEY_CHECKS=1;');
         
         $this->command->info('Seeding Product Package data...');
         
@@ -417,12 +417,6 @@ class ProductPackageSeeder extends Seeder
             ['type' => 'Storage Capacity', 'name' => '512GB', 'value' => '512'],
             ['type' => 'Storage Capacity', 'name' => '1TB', 'value' => '1024'],
             
-            // RAM
-            ['type' => 'RAM', 'name' => '4GB', 'value' => '4'],
-            ['type' => 'RAM', 'name' => '8GB', 'value' => '8'],
-            ['type' => 'RAM', 'name' => '16GB', 'value' => '16'],
-            ['type' => 'RAM', 'name' => '32GB', 'value' => '32'],
-            ['type' => 'RAM', 'name' => '64GB', 'value' => '64'],
         ];
         
         $taxonomyIds = [];
@@ -434,7 +428,6 @@ class ProductPackageSeeder extends Seeder
                 'taxonomy_type_id' => $typeIds[$taxonomy['type']],
                 'name' => $taxonomy['name'],
                 'slug' => $slug,
-                'value' => $taxonomy['value'],
                 'parent_id' => null,
                 'sort_order' => $sortOrder++,
                 'created_at' => now(),
@@ -809,7 +802,7 @@ class ProductPackageSeeder extends Seeder
                 'description' => $product['description'],
                 'price' => $product['price'],
                 'sku' => $product['sku'],
-                'stock_quantity' => $product['stock_quantity'],
+                'quantity' => $product['stock_quantity'],
                 'is_active' => $product['is_active'],
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -989,23 +982,6 @@ class ProductPackageSeeder extends Seeder
                     }
                 }
                 
-                // Add RAM options for computers (products 1, 6, 10-15, 30)
-                if ($index == 1 || $index == 6 || ($index >= 10 && $index <= 15) || $index == 30) {
-                    $numRam = rand(2, 4);
-                    $selectedRam = array_rand($taxonomyIds['RAM'], min($numRam, count($taxonomyIds['RAM'])));
-                    if (!is_array($selectedRam)) {
-                        $selectedRam = [$selectedRam];
-                    }
-                    
-                    foreach ($selectedRam as $ramIndex) {
-                        $pivotData[] = [
-                            'product_id' => $productId,
-                            'taxonomy_id' => $taxonomyIds['RAM'][$ramIndex],
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ];
-                    }
-                }
             }
             
             // Clothing products (17-22) get Color, Size, Material

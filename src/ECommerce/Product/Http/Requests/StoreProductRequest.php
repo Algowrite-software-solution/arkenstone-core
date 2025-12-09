@@ -15,6 +15,32 @@ class StoreProductRequest extends FormRequest
     }
 
     /**
+     * Prepare the data for validation.
+     */
+    protected function prepareForValidation(): void
+    {
+        $data = [];
+
+        // Convert 'details' from JSON string to array (for form-data requests)
+        if ($this->has('details') && is_string($this->details)) {
+            $decoded = json_decode($this->details, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $data['details'] = $decoded;
+            }
+        }
+
+        // Convert 'is_active' from string to boolean
+        if ($this->has('is_active')) {
+            $data['is_active'] = filter_var($this->is_active, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        }
+
+        // Merge the converted data
+        if (!empty($data)) {
+            $this->merge($data);
+        }
+    }
+
+    /**
      * Get the validation rules that apply to the request.
      *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
