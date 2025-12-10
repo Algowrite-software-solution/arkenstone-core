@@ -323,8 +323,8 @@ curl -X POST http://localhost:8000/api/v1/products \
   -F "stock_quantity=20" \
   -F "minified_description=Latest iPhone model" \
   -F 'details={"specifications":{"chip":"A17 Pro","display":"6.1 inch"}}' \
-  -F "uploaded_images[]=@/path/to/phone-front.jpg" \
-  -F "uploaded_images[]=@/path/to/phone-back.jpg" \
+  -F "images[]=@/path/to/phone-front.jpg" \
+  -F "images[]=@/path/to/phone-back.jpg" \
   -F "image_alt_texts[]=Front" \
   -F "image_alt_texts[]=Back" \
   -F "primary_image_index=0"
@@ -552,7 +552,7 @@ sku: IP15-001
 price: 999.99
 minified_description: Latest iPhone
 details: {"chip":"A17 Pro"}
-uploaded_images[]: [image1.jpg]
+images[]: [image1.jpg]
 image_alt_texts[]: Front
 primary_image_index: 0
 ```
@@ -754,7 +754,7 @@ curl -X POST http://localhost:8000/api/v1/products \
   -F "name=Product with Image" \
   -F "sku=IMG-001" \
   -F "price=199" \
-  -F "uploaded_images[]=@/path/to/image.jpg" \
+  -F "images[]=@/path/to/image.jpg" \
   -F "image_alt_texts[]=Front view"
 ```
 

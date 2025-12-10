@@ -27,7 +27,7 @@ class CoreServiceProvider extends ServiceProvider
         $this->app->register(ProductTaxonomyServiceProvider::class);
         $this->app->register(TaxonomyServiceProvider::class);
         $this->app->register(TaxonomyTypeServiceProvider::class);
-        
+
         $this->app->singleton('utility', function () {
             return new UtilityService();
         });
@@ -35,12 +35,34 @@ class CoreServiceProvider extends ServiceProvider
 
     public function boot(Dispatcher $dispatcher): void
     {
+        // Initialize Event system
+        Event::setDispatcher($dispatcher); // attache the event to the app
+
+        // Publish configuration
         $this->publishes([
             __DIR__ . '/../config/arkenstone.php' => config_path('arkenstone.php'),
         ], 'arkenstone-config');
 
-        
-        Event::setDispatcher($dispatcher); // attache the event to the app
+        // Publish migrations
+        $this->publishes([
+            __DIR__ . '/../database/migrations' => database_path('migrations'),
+        ], 'arkenstone-migrations');
+
+        // Publish seeders
+        $this->publishes([
+            __DIR__ . '/../database/seeders' => database_path('seeders'),
+        ], 'arkenstone-seeders');
+
+
+        //combined tag for all publishes
+        $this->publishes([
+            __DIR__ . '/../config/arkenstone.php' => config_path('arkenstone.php'),
+            __DIR__ . '/../database/migrations' => database_path('migrations'),
+            __DIR__ . '/../database/seeders' => database_path('seeders'),
+        ], 'arkenstone');
+
+        // Load migrations if running in package context (for testing)
+        $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
     }
 }
 
