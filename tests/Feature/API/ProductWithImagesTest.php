@@ -66,7 +66,7 @@ class ProductWithImagesTest extends TestCase
             'price' => 149.99,
             'sku' => 'TEST-SKU-002',
             'brand_id' => $brand->id,
-            'uploaded_images' => [$image1, $image2],
+            'images' => [$image1, $image2],
         ]);
 
         $response->assertStatus(201);
@@ -93,7 +93,7 @@ class ProductWithImagesTest extends TestCase
             'price' => 199.99,
             'sku' => 'TEST-SKU-003',
             'brand_id' => $brand->id,
-            'uploaded_images' => [$image1, $image2],
+            'images' => [$image1, $image2],
             'image_alt_texts' => ['Front view', 'Back view'],
             'image_sort_orders' => [1, 2],
             'primary_image_index' => 0,
@@ -113,7 +113,7 @@ class ProductWithImagesTest extends TestCase
     }
 
     /** @test */
-    public function it_validates_uploaded_images_during_product_creation()
+    public function it_validates_images_during_product_creation()
     {
         $brand = Brand::factory()->create();
         $invalidFile = UploadedFile::fake()->create('document.pdf', 100);
@@ -123,11 +123,11 @@ class ProductWithImagesTest extends TestCase
             'price' => 99.99,
             'sku' => 'TEST-SKU-004',
             'brand_id' => $brand->id,
-            'uploaded_images' => [$invalidFile],
+            'images' => [$invalidFile],
         ]);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['uploaded_images.0']);
+            ->assertJsonValidationErrors(['images.0']);
     }
 
     /** @test */
@@ -141,11 +141,11 @@ class ProductWithImagesTest extends TestCase
             'price' => 99.99,
             'sku' => 'TEST-SKU-005',
             'brand_id' => $brand->id,
-            'uploaded_images' => [$largeImage],
+            'images' => [$largeImage],
         ]);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['uploaded_images.0']);
+            ->assertJsonValidationErrors(['images.0']);
     }
 
     /** @test */
@@ -176,7 +176,7 @@ class ProductWithImagesTest extends TestCase
 
         $response = $this->putJson("/api/v1/products/{$product->id}", [
             'name' => 'Updated with Images',
-            'uploaded_images' => [$image1, $image2],
+            'images' => [$image1, $image2],
         ]);
 
         $response->assertStatus(200);
@@ -235,7 +235,7 @@ class ProductWithImagesTest extends TestCase
         $response = $this->putJson("/api/v1/products/{$product->id}", [
             'name' => 'Updated Product',
             'delete_image_ids' => [$existingImage->id],
-            'uploaded_images' => [$newImage],
+            'images' => [$newImage],
             'image_alt_texts' => ['New image alt text'],
         ]);
 
@@ -279,7 +279,7 @@ class ProductWithImagesTest extends TestCase
         $newImage2 = UploadedFile::fake()->image('new2.jpg');
 
         $response = $this->putJson("/api/v1/products/{$product->id}", [
-            'uploaded_images' => [$newImage1, $newImage2],
+            'images' => [$newImage1, $newImage2],
             'primary_image_index' => 1, // Second new image should be primary
         ]);
 
@@ -305,7 +305,7 @@ class ProductWithImagesTest extends TestCase
             'sku' => 'COMPLETE-001',
             'brand_id' => $brand->id,
             'category_ids' => [$category->id],
-            'uploaded_images' => [$image],
+            'images' => [$image],
             'image_alt_texts' => ['Main product image'],
             'is_active' => true,
         ]);
@@ -328,7 +328,7 @@ class ProductWithImagesTest extends TestCase
             'price' => 99.99,
             'sku' => 'TEST-SKU-PATH',
             'brand_id' => $brand->id,
-            'uploaded_images' => [$image],
+            'images' => [$image],
         ]);
 
         $response->assertStatus(201);
@@ -355,7 +355,7 @@ class ProductWithImagesTest extends TestCase
             'sku' => 'MULTI-CAT-001',
             'brand_id' => $brand->id,
             'category_ids' => [$category1->id, $category2->id],
-            'uploaded_images' => [$image],
+            'images' => [$image],
         ]);
 
         $response->assertStatus(201);
