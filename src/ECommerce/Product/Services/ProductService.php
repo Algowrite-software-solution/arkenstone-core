@@ -62,7 +62,7 @@ class ProductService implements ProductServiceInterface
          $data["slug"] = Str::slug($data["name"]); // create a slug
 
          // Extract image-related fields before creating product
-         $uploadedImages = $data['uploaded_images'] ?? [];
+         $uploadedImages = $data['images'] ?? [];
          $imageMetadata = [
             'alt_texts' => $data['image_alt_texts'] ?? [],
             'sort_orders' => $data['image_sort_orders'] ?? [],
@@ -70,7 +70,7 @@ class ProductService implements ProductServiceInterface
          ];
 
          // Remove image fields from product data
-         unset($data['uploaded_images'], $data['image_alt_texts'], $data['image_sort_orders'], $data['primary_image_index']);
+         unset($data['images'], $data['image_alt_texts'], $data['image_sort_orders'], $data['primary_image_index']);
 
          $product = Product::create($data);
 
@@ -107,7 +107,7 @@ class ProductService implements ProductServiceInterface
    {
       return DB::transaction(function () use ($product, $data) {
          // Extract image-related fields
-         $uploadedImages = $data['uploaded_images'] ?? [];
+         $uploadedImages = $data['images'] ?? [];
          $deleteImageIds = $data['delete_image_ids'] ?? [];
          $imageMetadata = [
             'alt_texts' => $data['image_alt_texts'] ?? [],
@@ -116,7 +116,7 @@ class ProductService implements ProductServiceInterface
          ];
 
          // Remove image fields from product data
-         unset($data['uploaded_images'], $data['image_alt_texts'], $data['image_sort_orders'], $data['primary_image_index'], $data['delete_image_ids']);
+         unset($data['images'], $data['image_alt_texts'], $data['image_sort_orders'], $data['primary_image_index'], $data['delete_image_ids']);
 
          $product->update($data);
 

@@ -246,7 +246,7 @@ All API responses follow a standardized format using `ResponseProtocol`:
   "discount_value": 10,
   "category_ids": [1, 2],
   "taxonomy_ids": [5, 6, 7],
-  "uploaded_images": ["<file>", "<file>"],
+  "images": ["<file>", "<file>"],
   "image_alt_texts": ["MacBook Pro front view", "MacBook Pro side view"],
   "image_sort_orders": [1, 2],
   "primary_image_index": 0
@@ -272,10 +272,10 @@ All API responses follow a standardized format using `ResponseProtocol`:
 | `category_ids.*` | integer | No | exists:categories,id |
 | `taxonomy_ids` | array | No | array |
 | `taxonomy_ids.*` | integer | No | exists:taxonomies,id |
-| `uploaded_images` | array | No | array of files (jpg,jpeg,png,gif,webp), max:2048KB |
-| `image_alt_texts` | array | No | array, matches uploaded_images length |
+| `images` | array | No | array of files (jpg,jpeg,png,gif,webp), max:2048KB |
+| `image_alt_texts` | array | No | array, matches images length |
 | `image_sort_orders` | array | No | array of integers |
-| `primary_image_index` | integer | No | integer, within uploaded_images range |
+| `primary_image_index` | integer | No | integer, within images range |
 
 **Response (201):**
 ```json
@@ -459,7 +459,7 @@ All API responses follow a standardized format using `ResponseProtocol`:
   "category_ids": [1, 2, 3],
   "taxonomy_ids": [5, 6],
   "delete_image_ids": [3, 4],
-  "uploaded_images": ["<file>"],
+  "images": ["<file>"],
   "image_alt_texts": ["New product image"],
   "image_sort_orders": [1],
   "primary_image_index": 0
@@ -1465,7 +1465,7 @@ curl -X POST "http://your-domain.com/api/v1/products/1/images/upload" \
   "status": "success",
   "message": "Images uploaded successfully",
   "data": {
-    "uploaded_images": [
+    "images": [
       {
         "id": 5,
         "product_id": 1,
