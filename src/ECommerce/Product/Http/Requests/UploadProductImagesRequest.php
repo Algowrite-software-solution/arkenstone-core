@@ -3,6 +3,7 @@
 namespace Arkenstone\Core\ECommerce\Product\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Log;
 
 class UploadProductImagesRequest extends FormRequest
 {
@@ -21,6 +22,7 @@ class UploadProductImagesRequest extends FormRequest
      */
     public function rules(): array
     {
+        
         $config = config('arkenstone.product_images');
         $maxSize = $config['max_size'] ?? 5120; // KB
         $allowedMimes = $this->extractMimeExtensions($config['allowed_types'] ?? []);

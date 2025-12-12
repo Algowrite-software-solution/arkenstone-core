@@ -9,3 +9,6 @@ composer.lock
 .env
 /.cache
 
+# Don't ignore migrations in package
+!/database/migrations/
+

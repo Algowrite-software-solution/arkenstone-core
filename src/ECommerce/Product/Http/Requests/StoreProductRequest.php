@@ -15,6 +15,32 @@ class StoreProductRequest extends FormRequest
     }
 
     /**
+     * Prepare the data for validation.
+     */
+    protected function prepareForValidation(): void
+    {
+        $data = [];
+
+        // Convert 'details' from JSON string to array (for form-data requests)
+        if ($this->has('details') && is_string($this->details)) {
+            $decoded = json_decode($this->details, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $data['details'] = $decoded;
+            }
+        }
+
+        // Convert 'is_active' from string to boolean
+        if ($this->has('is_active')) {
+            $data['is_active'] = filter_var($this->is_active, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        }
+
+        // Merge the converted data
+        if (!empty($data)) {
+            $this->merge($data);
+        }
+    }
+
+    /**
      * Get the validation rules that apply to the request.
      *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
@@ -44,8 +70,8 @@ class StoreProductRequest extends FormRequest
             'taxonomy_ids.*' => ['integer', 'exists:taxonomies,id'],
 
             // Image upload fields
-            'uploaded_images' => ['sometimes', 'nullable', 'array'],
-            'uploaded_images.*' => [
+            'images' => ['sometimes', 'nullable', 'array'],
+            'images.*' => [
                 'required',
                 'file',
                 'image',
@@ -79,10 +105,10 @@ class StoreProductRequest extends FormRequest
             'brand_id.exists' => 'The selected brand does not exist.',
             'category_ids.*.exists' => 'One or more selected categories do not exist.',
             'taxonomy_ids.*.exists' => 'One or more selected taxonomies do not exist.',
-            'uploaded_images.*.file' => 'Each upload must be a valid file.',
-            'uploaded_images.*.image' => 'Each file must be a valid image.',
-            'uploaded_images.*.max' => 'Each image must not exceed the maximum file size.',
-            'uploaded_images.*.mimes' => 'Each image must be a valid format (jpeg, png, webp, gif).',
+            'images.*.file' => 'Each upload must be a valid file.',
+            'images.*.image' => 'Each file must be a valid image.',
+            'images.*.max' => 'Each image must not exceed the maximum file size.',
+            'images.*.mimes' => 'Each image must be a valid format (jpeg, png, webp, gif).',
             'image_alt_texts.*.max' => 'Alt text must not exceed 255 characters.',
             'image_sort_orders.*.min' => 'Sort order must be greater than or equal to 0.',
             'primary_image_index.integer' => 'Primary image index must be an integer.',
