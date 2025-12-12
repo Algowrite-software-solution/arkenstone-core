@@ -1,0 +1,98 @@
+@startuml Commit Reservation on Order Placement Sequence Diagram
+!theme plain
+autonumber
+
+actor "Customer" as customer
+participant "OrderController" as order_ctrl
+participant "OrderService" as order_svc
+participant "StockReservationService" as reserve_svc
+participant "Stock" as stock_model
+participant "StockReservation" as reservation_model
+participant "Event" as event
+database "Database" as db
+
+customer -> order_ctrl: POST /api/orders\n{cart_id, payment_info}
+activate order_ctrl
+
+order_ctrl -> order_ctrl: validate request
+order_ctrl -> order_svc: createOrder(cart_id, payment_info)
+activate order_svc
+
+order_svc -> order_svc: get cart items with reservations
+order_svc -> order_svc: validate payment
+
+loop for each cart item
+    order_svc -> reserve_svc: commit(reservation_id, order_id)
+    activate reserve_svc
+    
+    reserve_svc -> reservation_model: find(reservation_id)
+    activate reservation_model
+    reservation_model -> db: SELECT * FROM stock_reservations\nWHERE id = ? AND status = 'pending'
+    db --> reservation_model: reservation record
+    deactivate reservation_model
+    
+    alt reservation is valid and pending
+        reserve_svc -> db: BEGIN TRANSACTION
+        
+        ' Update reservation status
+        reserve_svc -> reservation_model: update({\n  status: 'committed',\n  reference_type: 'order',\n  reference_id: order_id\n})
+        activate reservation_model
+        reservation_model -> db: UPDATE stock_reservations\nSET status = 'committed',\n    reference_type = 'order',\n    reference_id = ?,\n    expires_at = NULL\nWHERE id = ?
+        db --> reservation_model: success
+        deactivate reservation_model
+        
+        ' Keep quantity_reserved unchanged
+        note over reserve_svc,stock_model
+          Quantity stays in quantity_reserved
+          until fulfillment (shipment)
+        end note
+        
+        reserve_svc -> db: COMMIT TRANSACTION
+        
+        ' Dispatch event
+        reserve_svc -> event: dispatch('stock.committed', {\n  stock_id,\n  quantity,\n  order_id,\n  reservation\n})
+        activate event
+        event --> reserve_svc: 
+        deactivate event
+        
+        reserve_svc --> order_svc: success
+        deactivate reserve_svc
+        
+    else reservation expired or invalid
+        reserve_svc -> db: ROLLBACK
+        reserve_svc --> order_svc: error: reservation invalid
+        deactivate reserve_svc
+        
+        order_svc -> order_svc: rollback all committed reservations
+        order_svc --> order_ctrl: error: stock no longer available
+        deactivate order_svc
+        
+        order_ctrl --> customer: 422 Unprocessable\n"Stock no longer available"
+        deactivate order_ctrl
+        
+        [<-- customer: Re-add to cart
+    end
+end
+
+order_svc -> order_svc: create order record
+order_svc -> order_svc: clear cart
+
+order_svc -> event: dispatch('order.created', order)
+activate event
+event --> order_svc: 
+deactivate event
+
+order_svc --> order_ctrl: Order object
+deactivate order_svc
+
+order_ctrl --> customer: 201 Created + order details
+deactivate order_ctrl
+
+note over customer, db
+  **On Fulfillment/Shipment:**
+  1. Update reservation status: 'fulfilled'
+  2. Decrement quantity_on_hand
+  3. Decrement quantity_reserved
+end note
+
+@enduml

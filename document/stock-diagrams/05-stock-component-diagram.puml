@@ -1,0 +1,145 @@
+@startuml Stock Module Component Diagram
+!theme plain
+
+package "Arkenstone Core - Stock Module" {
+    
+    package "HTTP Layer" {
+        component [StockController] as stock_ctrl
+        component [SupplierController] as supplier_ctrl
+        component [VariantController] as variant_ctrl
+        component [StockReservationController] as reservation_ctrl
+    }
+    
+    package "Service Layer" {
+        component [StockService] as stock_svc
+        component [StockReservationService] as reservation_svc
+        component [SupplierService] as supplier_svc
+        component [VariantService] as variant_svc
+        component [VariationOptionService] as option_svc
+    }
+    
+    package "Model Layer" {
+        component [Stock Model] as stock_model
+        component [StockReservation Model] as reservation_model
+        component [Supplier Model] as supplier_model
+        component [Variant Model] as variant_model
+        component [VariationOption Model] as option_model
+        component [StockVariantOption Model] as pivot_model
+    }
+    
+    package "Provider Layer" {
+        component [StockServiceProvider] as stock_provider
+    }
+    
+    package "Database Layer" {
+        database "stocks" as stocks_table
+        database "stock_reservations" as reservations_table
+        database "suppliers" as suppliers_table
+        database "variants" as variants_table
+        database "variation_options" as options_table
+        database "stock_variant_options" as pivot_table
+    }
+    
+    package "Event System" {
+        component [Event Dispatcher] as events
+    }
+    
+    package "Helpers" {
+        component [ResponseProtocol] as response
+    }
+}
+
+package "External Dependencies" {
+    component [Product Module] as product_module
+    component [Order Module] as order_module
+    component [Cart Module] as cart_module
+}
+
+' HTTP to Service connections
+stock_ctrl --> stock_svc
+stock_ctrl --> reservation_svc
+supplier_ctrl --> supplier_svc
+variant_ctrl --> variant_svc
+variant_ctrl --> option_svc
+reservation_ctrl --> reservation_svc
+
+' Service to Model connections
+stock_svc --> stock_model
+reservation_svc --> stock_model
+reservation_svc --> reservation_model
+supplier_svc --> supplier_model
+variant_svc --> variant_model
+option_svc --> option_model
+
+' Model to Database connections
+stock_model --> stocks_table
+reservation_model --> reservations_table
+supplier_model --> suppliers_table
+variant_model --> variants_table
+option_model --> options_table
+pivot_model --> pivot_table
+
+' Model relationships
+stock_model --> pivot_model
+option_model --> pivot_model
+variant_model --> option_model
+supplier_model --> stock_model
+stock_model --> reservation_model
+
+' Service Provider connections
+stock_provider ..> stock_svc : registers
+stock_provider ..> reservation_svc : registers
+stock_provider ..> supplier_svc : registers
+stock_provider ..> variant_svc : registers
+stock_provider ..> option_svc : registers
+
+' Event connections
+stock_svc --> events : dispatches
+reservation_svc --> events : dispatches
+supplier_svc --> events : dispatches
+
+' Response Protocol usage
+stock_ctrl --> response
+supplier_ctrl --> response
+variant_ctrl --> response
+reservation_ctrl --> response
+
+' External module dependencies
+stock_model --> product_module : belongs to product
+reservation_svc <-- cart_module : reserves stock
+reservation_svc <-- order_module : commits reservation
+
+note right of stock_provider
+  Registered in CoreServiceProvider
+  Binds all stock services to container
+  Loads routes and migrations
+end note
+
+note right of reservation_svc
+  Critical for cart/order functionality
+  Manages reservation lifecycle
+  Status-based state machine:
+  pending → checking_out → committed → fulfilled
+end note
+
+note bottom of events
+  Dispatches:
+  - stock.created
+  - stock.updated
+  - stock.reserved
+  - stock.released
+  - stock.committed
+  - stock.fulfilled
+  - stock.low_stock
+end note
+
+note right of reservation_model
+  **Reservation Statuses:**
+  • pending - Cart item (10 min expiry)
+  • checking_out - In checkout (5 min expiry)
+  • committed - Order placed (no expiry)
+  • fulfilled - Shipped (final state)
+  • released - Cancelled/expired
+end note
+
+@enduml

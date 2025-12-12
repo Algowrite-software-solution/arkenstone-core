@@ -1,0 +1,102 @@
+@startuml Reserve Stock on Add to Cart Sequence Diagram
+!theme plain
+autonumber
+
+actor "Customer" as customer
+participant "CartController" as cart_ctrl
+participant "CartService" as cart_svc
+participant "StockReservationService" as reserve_svc
+participant "StockService" as stock_svc
+participant "Stock" as stock_model
+participant "StockReservation" as reservation_model
+participant "Event" as event
+database "Database" as db
+
+customer -> cart_ctrl: POST /api/cart/add\n{product_id, stock_id, quantity}
+activate cart_ctrl
+
+cart_ctrl -> cart_ctrl: validate request
+cart_ctrl -> cart_svc: addToCart(product_id, stock_id, quantity)
+activate cart_svc
+
+cart_svc -> stock_svc: checkAvailability(stock_id, quantity)
+activate stock_svc
+
+stock_svc -> stock_model: find(stock_id)
+activate stock_model
+stock_model -> db: SELECT * FROM stocks WHERE id = ?
+db --> stock_model: stock record
+deactivate stock_model
+
+stock_svc -> db: SELECT SUM(quantity)\nFROM stock_reservations\nWHERE stock_id = ?\nAND status IN ['pending','checking_out','committed']
+db --> stock_svc: reserved_quantity
+
+stock_svc -> stock_svc: calculate available:\navailable = quantity_on_hand - reserved
+
+alt sufficient stock available
+    stock_svc --> cart_svc: availability = true
+    deactivate stock_svc
+    
+    cart_svc -> reserve_svc: reserve(stock_id, quantity, reference)
+    activate reserve_svc
+    
+    reserve_svc -> db: BEGIN TRANSACTION
+    
+    ' Create reservation record
+    reserve_svc -> reservation_model: create({\n  stock_id,\n  quantity,\n  status: 'pending',\n  reference_type: 'cart',\n  reference_id: cart_id,\n  expires_at: now() + 10 minutes\n})
+    activate reservation_model
+    reservation_model -> db: INSERT INTO stock_reservations
+    db --> reservation_model: reservation record
+    deactivate reservation_model
+    
+    ' Update stock reserved quantity
+    reserve_svc -> stock_model: increment('quantity_reserved', quantity)
+    activate stock_model
+    stock_model -> db: UPDATE stocks\nSET quantity_reserved = quantity_reserved + ?\nWHERE id = ?
+    db --> stock_model: success
+    deactivate stock_model
+    
+    reserve_svc -> db: COMMIT TRANSACTION
+    
+    ' Dispatch event
+    reserve_svc -> event: dispatch('stock.reserved', {\n  stock_id,\n  quantity,\n  reservation\n})
+    activate event
+    event --> reserve_svc: 
+    deactivate event
+    
+    ' Check if low stock
+    reserve_svc -> stock_model: refresh()
+    activate stock_model
+    stock_model -> db: SELECT
+    db --> stock_model: updated stock
+    deactivate stock_model
+    
+    alt stock is low (available < min_stock_level)
+        reserve_svc -> event: dispatch('stock.low_stock', stock)
+        activate event
+        event --> reserve_svc: 
+        deactivate event
+    end
+    
+    reserve_svc --> cart_svc: StockReservation object
+    deactivate reserve_svc
+    
+    cart_svc -> cart_svc: save cart item with reservation_id
+    cart_svc --> cart_ctrl: success + cart data
+    deactivate cart_svc
+    
+    cart_ctrl --> customer: 200 OK + cart updated
+    deactivate cart_ctrl
+    
+else insufficient stock
+    stock_svc --> cart_svc: availability = false + available_qty
+    deactivate stock_svc
+    
+    cart_svc --> cart_ctrl: error: insufficient stock
+    deactivate cart_svc
+    
+    cart_ctrl --> customer: 422 Unprocessable\n"Only {available_qty} items available"
+    deactivate cart_ctrl
+end
+
+@enduml
