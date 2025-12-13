@@ -5,6 +5,7 @@ namespace Arkenstone\Core\ECommerce\Product\Services;
 use Arkenstone\Core\ECommerce\Contracts\CategoryServiceInterface;
 use Arkenstone\Core\ECommerce\Product\Models\Category;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Str;
 
 class CategoryService implements CategoryServiceInterface
 {
@@ -25,11 +26,14 @@ class CategoryService implements CategoryServiceInterface
 
     public function createCategory(array $data): Category
     {
+        $data['slug'] = $data['slug'] ?? Str::slug($data['name']);
         return Category::create($data);
     }
 
     public function updateCategory(int $id, array $data): bool
     {
+        $data['slug'] ??= Str::slug($data['name']); // #TODO - temp fix
+        $data['is_active'] ??= true; // #TODO - temp fix
         $category = Category::find($id);
 
         if (!$category) {

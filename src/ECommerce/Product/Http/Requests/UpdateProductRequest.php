@@ -27,12 +27,12 @@ class UpdateProductRequest extends FormRequest
         $allowedMimes = $this->extractMimeExtensions($config['allowed_types'] ?? []);
 
         return [
-            'name' => ['sometimes', 'string', 'max:255'],
+            'name' => ['sometimes', 'string', 'max:255', 'unique:products,name,' . $productId],
             'slug' => ['sometimes', 'nullable', 'string', 'max:255', 'unique:products,slug,' . $productId],
             'description' => ['sometimes', 'nullable', 'string'],
             'minified_description' => ['sometimes', 'nullable', 'string', 'max:500'],
-            'details' => ['sometimes', 'nullable', 'array'],
-            'price' => ['sometimes', 'numeric', 'min:0'],
+            'details' => ['sometimes', 'nullable', 'string'],
+            'price' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'discount_type' => ['sometimes', 'nullable', 'in:percentage,fixed_amount'],
             'discount_value' => ['sometimes', 'nullable', 'numeric', 'min:0', 'required_with:discount_type'],
             'sku' => ['sometimes', 'nullable', 'string', 'max:100', 'unique:products,sku,' . $productId],
