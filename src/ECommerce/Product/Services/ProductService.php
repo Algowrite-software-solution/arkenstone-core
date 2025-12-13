@@ -28,6 +28,7 @@ class ProductService implements ProductServiceInterface
     * @var array
     */
    protected array $allowedRelations = ['categories', 'brand', 'images', 'taxonomies', 'taxonomies.type'];
+   protected int $PER_PAGE = 100000;
 
    public function find(int $id, array $with = []): ?ProductContract
    {
@@ -48,12 +49,11 @@ class ProductService implements ProductServiceInterface
       $relationsToLoad = isset($filters['with']) & !empty($filters['with']) ? $filters['with'] : $this->allowedRelations;
 
       $query = Product::query()->with($relationsToLoad);
-      Log::info("Test Data", [$query->toSql()]);
 
       $filter = new ProductFilter($query, $filters); // filter the query based on the provided filters
       $filteredQuery = $filter->apply();
 
-      return $filteredQuery->paginate($filters['per_page'] ?? 15);
+      return $filteredQuery->orderBy($filters['order_by'] ?? 'created_at', $filters['order'] ?? 'desc')->paginate($filters['per_page'] ?? $this->PER_PAGE);
    }
 
    public function create(array $data): ProductContract

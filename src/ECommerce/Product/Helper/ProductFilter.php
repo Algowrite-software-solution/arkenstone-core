@@ -3,6 +3,7 @@
 namespace Arkenstone\Core\ECommerce\Product\Helper;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Log;
 
 class ProductFilter
 {
@@ -33,8 +34,14 @@ class ProductFilter
      */
     public function apply(): Builder
     {
-        // Apply a default filter, e.g., only show active products
-        $this->query->isActive();
+
+        // default is active
+        if (!empty($this->filters['get_inactive'])) {
+            if (!isset($this->filters['is_active'])) {
+                $this->filters['is_active'] = true;
+            }
+        }
+        
 
         // Loop through all the provided filters
         foreach ($this->filters as $name => $value) {
@@ -55,6 +62,19 @@ class ProductFilter
      */
 
 
+    /**
+     * Handles the 'is_active' filter.
+     */
+    protected function is_active(string $value): void
+    {
+        Log::info("is_active", [$value]);
+        // convert to boolean either it is 0, 1, true, false or somerandome string
+        $value = filter_var($value, FILTER_VALIDATE_BOOLEAN);
+        $this->query->where('is_active', $value);
+    }
+    
+
+    
     /**
      * Handles the 'name' filter.
      * Maps to the scopeFilterByName() in the Product model.
