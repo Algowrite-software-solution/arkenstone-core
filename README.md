@@ -1,6 +1,38 @@
 # Arkenstone Core
 Laravel based E Commerce Feature targetted Web Application.
 
+## 📚 Documentation
+
+- **[API Documentation](./document/API_DOCUMENTATION.md)** - Complete API endpoint reference
+- **[Backend Features Plan](./document/BACKEND_FEATURES_PLAN.md)** - Comprehensive feature planning (13 modules)
+- **[Feature Roadmap](./document/FEATURE_ROADMAP.md)** - Visual timeline and phase breakdown
+- **[Implementation Guide](./document/ORDER_STOCK_IMPLEMENTATION_GUIDE.md)** - Code examples for Order & Stock modules
+- **[Executive Summary](./document/BACKEND_FEATURES_SUMMARY.md)** - High-level overview for stakeholders
+- **[Testing Guide](./document/TESTING.md)** - Test setup and guidelines
+- **[Local Development Guide](./document/LOCAL_DEVELOPMENT_GUIDE.md)** - Development environment setup
+- **[Seeder Usage](./document/SEEDER_USAGE.md)** - Database seeding instructions
+
+## Current Status
+
+**Version:** 0.2.0  
+**Status:** Product Management Module Complete ✅
+
+**Implemented Features:**
+- ✅ Product CRUD with advanced filtering
+- ✅ Brand management
+- ✅ Category management (hierarchical)
+- ✅ Taxonomy system (flexible attributes)
+- ✅ Product image management
+- ✅ Test coverage: 176 tests, 595 assertions
+
+**Planned Features:** (See [Backend Features Plan](./document/BACKEND_FEATURES_PLAN.md))
+- 🚧 Order Management System
+- 🚧 Stock/Inventory Management
+- 🚧 Customer Management
+- 🚧 Cart & Checkout
+- 🚧 Payment Gateway Integration
+- 🚧 And 8 more modules...
+
 ##  Requirements
 
 - PHP >= 8.2
