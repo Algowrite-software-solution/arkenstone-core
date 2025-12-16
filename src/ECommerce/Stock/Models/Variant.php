@@ -2,7 +2,9 @@
 
 namespace Arkenstone\Core\ECommerce\Stock\Models;
 
+use Arkenstone\Core\Database\Factories\VariantFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Builder;
@@ -29,5 +31,13 @@ class Variant extends Model
     public function scopeSearch(Builder $query, string $search): Builder
     {
         return $query->where('name', 'like', "%{$search}%");
+    }
+
+    /**
+     * Create a new factory instance for the model.
+     */
+    protected static function newFactory(): Factory
+    {
+        return VariantFactory::new();
     }
 }

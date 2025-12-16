@@ -2,7 +2,9 @@
 
 namespace Arkenstone\Core\ECommerce\Stock\Models;
 
+use Arkenstone\Core\Database\Factories\StockReservationFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Builder;
@@ -75,7 +77,7 @@ class StockReservation extends Model
     public function extend(int $minutes): bool
     {
         if ($this->expires_at) {
-            $this->expires_at = now()->addMinutes($minutes);
+            $this->expires_at = $this->expires_at->addMinutes($minutes);
             return $this->save();
         }
         return false;
@@ -101,7 +103,7 @@ class StockReservation extends Model
         }
 
         $this->status = 'fulfilled';
-        
+
         // Deduct from stock
         $this->stock->decrement('quantity_on_hand', $this->quantity);
         $this->stock->decrement('quantity_reserved', $this->quantity);
@@ -173,5 +175,13 @@ class StockReservation extends Model
     {
         return $query->where('reference_type', $type)
             ->where('reference_id', $id);
+    }
+
+    /**
+     * Create a new factory instance for the model.
+     */
+    protected static function newFactory(): Factory
+    {
+        return StockReservationFactory::new();
     }
 }

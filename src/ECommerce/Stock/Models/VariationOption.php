@@ -2,7 +2,9 @@
 
 namespace Arkenstone\Core\ECommerce\Stock\Models;
 
+use Arkenstone\Core\Database\Factories\VariationOptionFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -20,6 +22,7 @@ class VariationOption extends Model
 
     protected $casts = [
         'variant_id' => 'integer',
+        'meta' => 'json',
     ];
 
     /**
@@ -35,7 +38,7 @@ class VariationOption extends Model
      */
     public function stocks(): BelongsToMany
     {
-        return $this->belongsToMany(Stock::class, 'stock_variant_options');
+        return $this->belongsToMany(Stock::class, 'stock_variant_options', 'variant_option_id', 'stock_id');
     }
 
     /**
@@ -44,5 +47,13 @@ class VariationOption extends Model
     public function scopeByVariant(Builder $query, int $variantId): Builder
     {
         return $query->where('variant_id', $variantId);
+    }
+
+    /**
+     * Create a new factory instance for the model.
+     */
+    protected static function newFactory(): Factory
+    {
+        return VariationOptionFactory::new();
     }
 }

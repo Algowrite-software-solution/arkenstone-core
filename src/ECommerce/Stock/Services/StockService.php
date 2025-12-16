@@ -32,7 +32,10 @@ class StockService implements StockServiceInterface
                 $stock->variationOptions()->attach($variationOptions);
             }
 
-            Log::info('Stock created', ['stock_id' => $stock->id, 'sku' => $stock->sku]);
+            Log::info(
+                'Stock created',
+                ['stock_id' => $stock->id, 'sku' => $stock->sku]
+            );
 
             return $stock->load($this->allowedRelations);
         });
@@ -57,7 +60,10 @@ class StockService implements StockServiceInterface
                 $stock->variationOptions()->sync($variationOptions);
             }
 
-            Log::info('Stock updated', ['stock_id' => $stock->id, 'sku' => $stock->sku]);
+            Log::info(
+                'Stock updated',
+                ['stock_id' => $stock->id, 'sku' => $stock->sku]
+            );
 
             return $stock->load($this->allowedRelations);
         });

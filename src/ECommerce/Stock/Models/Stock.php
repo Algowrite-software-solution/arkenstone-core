@@ -2,9 +2,11 @@
 
 namespace Arkenstone\Core\ECommerce\Stock\Models;
 
+use Arkenstone\Core\Database\Factories\StockFactory;
 use Arkenstone\Core\ECommerce\Product\Models\Product;
 use Arkenstone\Core\ECommerce\Product\Models\ProductImage;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -75,7 +77,7 @@ class Stock extends Model
      */
     public function variationOptions(): BelongsToMany
     {
-        return $this->belongsToMany(VariationOption::class, 'stock_variant_options');
+        return $this->belongsToMany(VariationOption::class, 'stock_variant_options', 'stock_id', 'variant_option_id');
     }
 
     /**
@@ -92,7 +94,7 @@ class Stock extends Model
     protected function quantityAvailable(): Attribute
     {
         return Attribute::make(
-            get: fn () => $this->quantity_on_hand - $this->quantity_reserved,
+            get: fn() => $this->quantity_on_hand - $this->quantity_reserved,
         );
     }
 
@@ -233,5 +235,13 @@ class Stock extends Model
                     $productQuery->where('name', 'like', "%{$search}%");
                 });
         });
+    }
+
+    /**
+     * Create a new factory instance for the model.
+     */
+    protected static function newFactory(): Factory
+    {
+        return StockFactory::new();
     }
 }
