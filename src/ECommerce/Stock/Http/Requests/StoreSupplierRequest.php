@@ -2,6 +2,7 @@
 
 namespace Arkenstone\Core\ECommerce\Stock\Http\Requests;
 
+use Arkenstone\Core\ECommerce\Stock\Enum\SupplierStatus;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreSupplierRequest extends FormRequest
@@ -32,7 +33,7 @@ class StoreSupplierRequest extends FormRequest
             'country' => ['nullable', 'string', 'max:100'],
             'postal_code' => ['nullable', 'string', 'max:20'],
             'supplier_code' => ['required', 'string', 'max:50', 'unique:suppliers,supplier_code'],
-            'status' => ['nullable', 'string', 'in:active,inactive'],
+            'status' => ['nullable', 'string', SupplierStatus::validationRule()],
             'notes' => ['nullable', 'string'],
         ];
     }

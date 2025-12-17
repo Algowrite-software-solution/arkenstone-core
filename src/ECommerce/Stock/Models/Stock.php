@@ -5,6 +5,8 @@ namespace Arkenstone\Core\ECommerce\Stock\Models;
 use Arkenstone\Core\Database\Factories\StockFactory;
 use Arkenstone\Core\ECommerce\Product\Models\Product;
 use Arkenstone\Core\ECommerce\Product\Models\ProductImage;
+use Arkenstone\Core\ECommerce\Stock\Enum\StockStatus;
+use Arkenstone\Core\ECommerce\Stock\Enum\StockReservationStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Model;
@@ -103,7 +105,7 @@ class Stock extends Model
      */
     public function isAvailable(): bool
     {
-        return $this->quantity_available > 0 && $this->status === 'active' && !$this->trashed();
+        return $this->quantity_available > 0 && $this->status === StockStatus::ACTIVE->value && !$this->trashed();
     }
 
     /**
@@ -128,7 +130,7 @@ class Stock extends Model
     public function getReservedQuantity(): int
     {
         return $this->reservations()
-            ->whereIn('status', ['pending', 'checking_out', 'committed'])
+            ->whereIn('status', StockReservationStatus::activeStatuses())
             ->sum('quantity');
     }
 
@@ -147,7 +149,7 @@ class Stock extends Model
     {
         $reservation = $this->reservations()->create([
             'quantity' => $quantity,
-            'status' => 'pending',
+            'status' => StockReservationStatus::PENDING->value,
             'reference_type' => $reference['type'] ?? null,
             'reference_id' => $reference['id'] ?? null,
             'expires_at' => now()->addMinutes(10),

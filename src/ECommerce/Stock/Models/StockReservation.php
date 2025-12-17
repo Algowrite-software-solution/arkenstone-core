@@ -3,6 +3,7 @@
 namespace Arkenstone\Core\ECommerce\Stock\Models;
 
 use Arkenstone\Core\Database\Factories\StockReservationFactory;
+use Arkenstone\Core\ECommerce\Stock\Enum\StockReservationStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Model;
@@ -51,7 +52,7 @@ class StockReservation extends Model
      */
     public function isPending(): bool
     {
-        return $this->status === 'pending';
+        return $this->status === StockReservationStatus::PENDING->value;
     }
 
     /**
@@ -59,7 +60,7 @@ class StockReservation extends Model
      */
     public function isCommitted(): bool
     {
-        return $this->status === 'committed';
+        return $this->status === StockReservationStatus::COMMITTED->value;
     }
 
     /**
@@ -88,7 +89,7 @@ class StockReservation extends Model
      */
     public function commit(): bool
     {
-        $this->status = 'committed';
+        $this->status = StockReservationStatus::COMMITTED->value;
         $this->expires_at = null;
         return $this->save();
     }
@@ -98,11 +99,11 @@ class StockReservation extends Model
      */
     public function fulfill(): bool
     {
-        if ($this->status !== 'committed') {
+        if ($this->status !== StockReservationStatus::COMMITTED->value) {
             return false;
         }
 
-        $this->status = 'fulfilled';
+        $this->status = StockReservationStatus::FULFILLED->value;
 
         // Deduct from stock
         $this->stock->decrement('quantity_on_hand', $this->quantity);
@@ -116,11 +117,11 @@ class StockReservation extends Model
      */
     public function release(): bool
     {
-        if (in_array($this->status, ['fulfilled', 'released'])) {
+        if (in_array($this->status, [StockReservationStatus::FULFILLED->value, StockReservationStatus::RELEASED->value])) {
             return false;
         }
 
-        $this->status = 'released';
+        $this->status = StockReservationStatus::RELEASED->value;
         $this->stock->decrement('quantity_reserved', $this->quantity);
 
         return $this->save();
@@ -131,7 +132,7 @@ class StockReservation extends Model
      */
     public function scopeActive(Builder $query): Builder
     {
-        return $query->whereIn('status', ['pending', 'checking_out', 'committed']);
+        return $query->whereIn('status', StockReservationStatus::activeStatuses());
     }
 
     /**
@@ -139,7 +140,7 @@ class StockReservation extends Model
      */
     public function scopePending(Builder $query): Builder
     {
-        return $query->where('status', 'pending');
+        return $query->where('status', StockReservationStatus::PENDING->value);
     }
 
     /**
@@ -147,7 +148,7 @@ class StockReservation extends Model
      */
     public function scopeCommitted(Builder $query): Builder
     {
-        return $query->where('status', 'committed');
+        return $query->where('status', StockReservationStatus::COMMITTED->value);
     }
 
     /**
@@ -157,7 +158,7 @@ class StockReservation extends Model
     {
         return $query->whereNotNull('expires_at')
             ->where('expires_at', '<', now())
-            ->whereIn('status', ['pending', 'checking_out']);
+            ->whereIn('status', StockReservationStatus::expiredStatuses());
     }
 
     /**

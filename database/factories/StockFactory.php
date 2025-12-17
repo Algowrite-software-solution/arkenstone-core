@@ -2,6 +2,7 @@
 
 namespace Arkenstone\Core\Database\Factories;
 
+use Arkenstone\Core\ECommerce\Stock\Enum\StockStatus;
 use Arkenstone\Core\ECommerce\Stock\Models\Stock;
 use Arkenstone\Core\ECommerce\Product\Models\Product;
 use Arkenstone\Core\ECommerce\Stock\Models\Supplier;
@@ -37,7 +38,7 @@ class StockFactory extends Factory
             'min_stock_level' => $this->faker->numberBetween(5, 50),
             'supplier_id' => Supplier::factory(),
             'image_url_id' => null,
-            'status' => $this->faker->randomElement(['active', 'out_of_stock', 'discontinued']),
+            'status' => $this->faker->randomElement(StockStatus::cases())->value,
         ];
     }
 
@@ -47,7 +48,7 @@ class StockFactory extends Factory
     public function available(): static
     {
         return $this->state(fn(array $attributes) => [
-            'status' => 'active',
+            'status' => StockStatus::ACTIVE->value,
             'quantity_on_hand' => $this->faker->numberBetween(10, 1000),
         ]);
     }

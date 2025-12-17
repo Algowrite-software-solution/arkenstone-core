@@ -2,6 +2,7 @@
 
 namespace Arkenstone\Core\Database\Factories;
 
+use Arkenstone\Core\ECommerce\Stock\Enum\SupplierStatus;
 use Arkenstone\Core\ECommerce\Stock\Models\Supplier;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -30,7 +31,7 @@ class SupplierFactory extends Factory
             'country' => $this->faker->country(),
             'postal_code' => $this->faker->postcode(),
             'supplier_code' => strtoupper($this->faker->bothify('SUP-####-??')),
-            'status' => $this->faker->randomElement(['active', 'inactive', 'pending']),
+            'status' => $this->faker->randomElement(SupplierStatus::cases())->value,
             'notes' => $this->faker->optional()->sentence(),
         ];
     }
@@ -41,7 +42,7 @@ class SupplierFactory extends Factory
     public function active(): static
     {
         return $this->state(fn(array $attributes) => [
-            'status' => 'active',
+            'status' => SupplierStatus::ACTIVE->value,
         ]);
     }
 
@@ -51,7 +52,7 @@ class SupplierFactory extends Factory
     public function inactive(): static
     {
         return $this->state(fn(array $attributes) => [
-            'status' => 'inactive',
+            'status' => SupplierStatus::INACTIVE->value,
         ]);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Arkenstone\Core\ECommerce\Stock\Http\Requests;
 
+use Arkenstone\Core\ECommerce\Stock\Enum\StockStatus;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -35,7 +36,7 @@ class UpdateStockRequest extends FormRequest
             'min_stock_level' => ['nullable', 'integer', 'min:0'],
             'supplier_id' => ['sometimes', 'integer', 'exists:suppliers,id'],
             'image_url_id' => ['nullable', 'integer', 'exists:product_images,id'],
-            'status' => ['nullable', 'string', 'in:active,inactive'],
+            'status' => ['nullable', 'string', StockStatus::validationRule()],
             'variation_option_ids' => ['nullable', 'array'],
             'variation_option_ids.*' => ['integer', 'exists:variation_options,id'],
         ];

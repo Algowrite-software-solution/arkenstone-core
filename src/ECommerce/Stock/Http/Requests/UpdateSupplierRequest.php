@@ -2,6 +2,7 @@
 
 namespace Arkenstone\Core\ECommerce\Stock\Http\Requests;
 
+use Arkenstone\Core\ECommerce\Stock\Enum\SupplierStatus;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -35,7 +36,7 @@ class UpdateSupplierRequest extends FormRequest
             'country' => ['nullable', 'string', 'max:100'],
             'postal_code' => ['nullable', 'string', 'max:20'],
             'supplier_code' => ['sometimes', 'string', 'max:50', Rule::unique('suppliers', 'supplier_code')->ignore($supplierId)],
-            'status' => ['nullable', 'string', 'in:active,inactive'],
+            'status' => ['nullable', 'string', SupplierStatus::validationRule()],
             'notes' => ['nullable', 'string'],
         ];
     }

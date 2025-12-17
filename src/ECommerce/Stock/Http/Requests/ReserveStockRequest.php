@@ -2,6 +2,7 @@
 
 namespace Arkenstone\Core\ECommerce\Stock\Http\Requests;
 
+use Arkenstone\Core\ECommerce\Stock\Enum\ReferenceType;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ReserveStockRequest extends FormRequest
@@ -24,7 +25,7 @@ class ReserveStockRequest extends FormRequest
         return [
             'stock_id' => ['required', 'integer', 'exists:stocks,id'],
             'quantity' => ['required', 'integer', 'min:1'],
-            'reference_type' => ['required', 'string', 'in:cart,order'],
+            'reference_type' => ['required', 'string', ReferenceType::validationRule()],
             'reference_id' => ['required', 'integer'],
         ];
     }

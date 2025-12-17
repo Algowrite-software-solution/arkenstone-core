@@ -3,6 +3,7 @@
 namespace Arkenstone\Core\ECommerce\Stock\Services;
 
 use Arkenstone\Core\ECommerce\Contracts\StockServiceInterface;
+use Arkenstone\Core\ECommerce\Stock\Enum\StockReservationStatus;
 use Arkenstone\Core\ECommerce\Stock\Models\Stock;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -78,7 +79,7 @@ class StockService implements StockServiceInterface
 
         // Check if there are active reservations
         $activeReservations = $stock->reservations()
-            ->whereIn('status', ['pending', 'checking_out', 'committed'])
+            ->whereIn('status', StockReservationStatus::activeStatuses())
             ->count();
 
         if ($activeReservations > 0) {

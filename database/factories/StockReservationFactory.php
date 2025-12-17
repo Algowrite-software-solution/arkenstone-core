@@ -2,6 +2,8 @@
 
 namespace Arkenstone\Core\Database\Factories;
 
+use Arkenstone\Core\ECommerce\Stock\Enum\ReferenceType;
+use Arkenstone\Core\ECommerce\Stock\Enum\StockReservationStatus;
 use Arkenstone\Core\ECommerce\Stock\Models\StockReservation;
 use Arkenstone\Core\ECommerce\Stock\Models\Stock;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -23,8 +25,8 @@ class StockReservationFactory extends Factory
         return [
             'stock_id' => Stock::factory(),
             'quantity' => $this->faker->numberBetween(1, 10),
-            'status' => $this->faker->randomElement(['pending', 'committed', 'fulfilled', 'cancelled', 'expired']),
-            'reference_type' => $this->faker->randomElement(['order', 'cart', 'quote']),
+            'status' => $this->faker->randomElement(StockReservationStatus::cases())->value,
+            'reference_type' => $this->faker->randomElement(ReferenceType::cases())->value,
             'reference_id' => $this->faker->numberBetween(1, 1000),
             'expires_at' => $this->faker->optional()->dateTimeBetween('now', '+7 days'),
             'notes' => $this->faker->optional()->sentence(),
@@ -37,7 +39,7 @@ class StockReservationFactory extends Factory
     public function pending(): static
     {
         return $this->state(fn(array $attributes) => [
-            'status' => 'pending',
+            'status' => StockReservationStatus::PENDING->value,
             'expires_at' => now()->addMinutes(15),
         ]);
     }
@@ -48,7 +50,7 @@ class StockReservationFactory extends Factory
     public function committed(): static
     {
         return $this->state(fn(array $attributes) => [
-            'status' => 'committed',
+            'status' => StockReservationStatus::COMMITTED->value,
             'expires_at' => now()->addDays(3),
         ]);
     }

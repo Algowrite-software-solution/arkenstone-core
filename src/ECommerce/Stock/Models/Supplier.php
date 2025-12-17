@@ -3,6 +3,7 @@
 namespace Arkenstone\Core\ECommerce\Stock\Models;
 
 use Arkenstone\Core\Database\Factories\SupplierFactory;
+use Arkenstone\Core\ECommerce\Stock\Enum\SupplierStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Model;
@@ -46,7 +47,7 @@ class Supplier extends Model
      */
     public function isActive(): bool
     {
-        return $this->status === 'active';
+        return $this->status === SupplierStatus::ACTIVE->value;
     }
 
     /**
@@ -54,7 +55,7 @@ class Supplier extends Model
      */
     public function scopeActive(Builder $query): Builder
     {
-        return $query->where('status', 'active');
+        return $query->where('status', SupplierStatus::ACTIVE->value);
     }
 
     /**

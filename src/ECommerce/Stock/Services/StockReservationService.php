@@ -3,6 +3,7 @@
 namespace Arkenstone\Core\ECommerce\Stock\Services;
 
 use Arkenstone\Core\ECommerce\Contracts\StockReservationServiceInterface;
+use Arkenstone\Core\ECommerce\Stock\Enum\StockReservationStatus;
 use Arkenstone\Core\ECommerce\Stock\Models\Stock;
 use Arkenstone\Core\ECommerce\Stock\Models\StockReservation;
 use Illuminate\Database\Eloquent\Collection;
@@ -148,7 +149,7 @@ class StockReservationService implements StockReservationServiceInterface
                 throw new \Exception("Cannot commit expired reservation");
             }
 
-            if ($reservation->status !== 'pending' && $reservation->status !== 'checking_out') {
+            if ($reservation->status !== StockReservationStatus::PENDING->value && $reservation->status !== StockReservationStatus::CHECKING_OUT->value) {
                 throw new \Exception("Cannot commit reservation with status: {$reservation->status}");
             }
 
@@ -174,7 +175,7 @@ class StockReservationService implements StockReservationServiceInterface
         return DB::transaction(function () use ($reservationId) {
             $reservation = StockReservation::with('stock')->findOrFail($reservationId);
 
-            if ($reservation->status !== 'committed') {
+            if ($reservation->status !== StockReservationStatus::COMMITTED->value) {
                 throw new \Exception("Can only fulfill committed reservations. Current status: {$reservation->status}");
             }
 
