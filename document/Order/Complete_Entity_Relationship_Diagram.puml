@@ -1,0 +1,721 @@
+@startuml Order Module - Complete Entity Relationship Diagram
+!theme plain
+
+' Title
+title Order Module - Complete Entity Relationship Diagram (ERD)\n(Arkenstone Core E-Commerce Package)
+
+skinparam linetype ortho
+skinparam packageStyle rectangle
+skinparam class {
+    BackgroundColor<<Cart>> #E8F5E9
+    BorderColor<<Cart>> #4CAF50
+    BackgroundColor<<Order>> #FFF3E0
+    BorderColor<<Order>> #FF6F00
+    BackgroundColor<<Payment>> #FCE4EC
+    BorderColor<<Payment>> #C2185B
+    BackgroundColor<<Address>> #E3F2FD
+    BorderColor<<Address>> #1976D2
+    BackgroundColor<<User>> #F3E5F5
+    BorderColor<<User>> #7B1FA2
+    BackgroundColor<<Product>> #E0F2F1
+    BorderColor<<Product>> #00897B
+    BackgroundColor<<Notification>> #FFF9C4
+    BorderColor<<Notification>> #F57F17
+}
+
+' ===== USER MANAGEMENT =====
+package "User Management" {
+  class User <<User>> {
+    **Primary Key**
+    +id: BIGINT
+    --
+    +name: VARCHAR(255)
+    +email: VARCHAR(255) UNIQUE
+    +password: VARCHAR(255)
+    +phone: VARCHAR(20)
+    +email_verified_at: TIMESTAMP
+    +created_at: TIMESTAMP
+    +updated_at: TIMESTAMP
+    --
+    **Relationships**
+    carts()
+    orders()
+    addresses()
+  }
+  
+  class UserAddress <<Address>> {
+    **Primary Key**
+    +id: BIGINT
+    --
+    **Foreign Keys**
+    +user_id: BIGINT
+    --
+    +label: VARCHAR(50)
+    +full_name: VARCHAR(255)
+    +phone: VARCHAR(20)
+    +address_line_1: VARCHAR(255)
+    +address_line_2: VARCHAR(255)
+    +city: VARCHAR(100)
+    +state: VARCHAR(100)
+    +postal_code: VARCHAR(20)
+    +country: VARCHAR(100)
+    +is_default: BOOLEAN
+    +created_at: TIMESTAMP
+    +updated_at: TIMESTAMP
+  }
+}
+
+' ===== CART ENTITIES =====
+package "Cart Management" {
+  class Cart <<Cart>> {
+    **Primary Key**
+    +id: BIGINT
+    --
+    **Foreign Keys**
+    +user_id: BIGINT (NULL for guest)
+    +order_id: BIGINT (NULL until converted)
+    +migrated_to_cart_id: BIGINT (NULL)
+    --
+    +cart_token: VARCHAR(64) UNIQUE
+    +session_id: VARCHAR(128)
+    +status: ENUM
+      - active
+      - completed
+      - migrated
+      - expired
+    +coupon_code: VARCHAR(50)
+    +discount_amount: DECIMAL(10,2)
+    +expires_at: TIMESTAMP
+    +completed_at: TIMESTAMP
+    +migrated_at: TIMESTAMP
+    +created_at: TIMESTAMP
+    +updated_at: TIMESTAMP
+    --
+    **Relationships**
+    user()
+    items()
+    order()
+    migratedToCart()
+  }
+  
+  class CartItem <<Cart>> {
+    **Primary Key**
+    +id: BIGINT
+    --
+    **Foreign Keys**
+    +cart_id: BIGINT
+    +product_id: BIGINT
+    --
+    +product_sku: VARCHAR(100)
+    +product_name: VARCHAR(255)
+    +quantity: INT
+    +unit_price: DECIMAL(10,2)
+    +discount_type: ENUM
+    +discount_value: DECIMAL(10,2)
+    +discount_amount: DECIMAL(10,2)
+    +tax_rate: DECIMAL(5,2)
+    +tax_amount: DECIMAL(10,2)
+    +total_price: DECIMAL(10,2)
+    +product_snapshot: JSON
+    +created_at: TIMESTAMP
+    +updated_at: TIMESTAMP
+    --
+    **Relationships**
+    cart()
+    product()
+  }
+}
+
+' ===== ORDER ENTITIES =====
+package "Order Management" {
+  class Order <<Order>> {
+    **Primary Key**
+    +id: BIGINT
+    --
+    **Foreign Keys**
+    +user_id: BIGINT (NULL for guest)
+    +cart_id: BIGINT (NULL)
+    +cancelled_by: BIGINT (NULL)
+    --
+    +order_number: VARCHAR(50) UNIQUE
+    +guest_email: VARCHAR(255)
+    +status: ENUM
+      - pending_payment
+      - confirmed
+      - processing
+      - shipped
+      - delivered
+      - completed
+      - cancelled
+      - returned
+    +payment_status: ENUM
+      - pending
+      - cod_pending
+      - awaiting_payment
+      - payment_initiated
+      - paid
+      - failed
+      - refunding
+      - refunded
+      - cancelled
+    +payment_method: ENUM
+      - card
+      - cod
+      - bank_transfer
+    +subtotal: DECIMAL(10,2)
+    +tax_amount: DECIMAL(10,2)
+    +shipping_cost: DECIMAL(10,2)
+    +discount_amount: DECIMAL(10,2)
+    +grand_total: DECIMAL(10,2)
+    +currency: VARCHAR(3)
+    +notes: TEXT
+    +admin_notes: TEXT
+    +tracking_number: VARCHAR(100)
+    +carrier: VARCHAR(50)
+    +confirmed_at: TIMESTAMP
+    +processing_at: TIMESTAMP
+    +shipped_at: TIMESTAMP
+    +delivered_at: TIMESTAMP
+    +completed_at: TIMESTAMP
+    +cancelled_at: TIMESTAMP
+    +cancelled_by_type: ENUM
+    +cancellation_reason: VARCHAR(255)
+    +cancellation_note: TEXT
+    +created_at: TIMESTAMP
+    +updated_at: TIMESTAMP
+    --
+    **Relationships**
+    user()
+    cart()
+    items()
+    shippingAddress()
+    billingAddress()
+    payments()
+    statusHistory()
+  }
+  
+  class OrderItem <<Order>> {
+    **Primary Key**
+    +id: BIGINT
+    --
+    **Foreign Keys**
+    +order_id: BIGINT
+    +product_id: BIGINT
+    --
+    +product_sku: VARCHAR(100)
+    +product_name: VARCHAR(255)
+    +quantity: INT
+    +unit_price: DECIMAL(10,2)
+    +discount_type: ENUM
+    +discount_value: DECIMAL(10,2)
+    +discount_amount: DECIMAL(10,2)
+    +tax_rate: DECIMAL(5,2)
+    +tax_amount: DECIMAL(10,2)
+    +subtotal: DECIMAL(10,2)
+    +total_price: DECIMAL(10,2)
+    +product_snapshot: JSON
+      - description
+      - image_url
+      - brand
+      - attributes
+      - specifications
+    +created_at: TIMESTAMP
+    +updated_at: TIMESTAMP
+    --
+    **Relationships**
+    order()
+    product()
+  }
+  
+  class OrderShippingAddress <<Address>> {
+    **Primary Key**
+    +id: BIGINT
+    --
+    **Foreign Keys**
+    +order_id: BIGINT
+    --
+    +full_name: VARCHAR(255)
+    +phone: VARCHAR(20)
+    +email: VARCHAR(255)
+    +address_line_1: VARCHAR(255)
+    +address_line_2: VARCHAR(255)
+    +city: VARCHAR(100)
+    +state: VARCHAR(100)
+    +postal_code: VARCHAR(20)
+    +country: VARCHAR(100)
+    +latitude: DECIMAL(10,8)
+    +longitude: DECIMAL(11,8)
+    +created_at: TIMESTAMP
+    +updated_at: TIMESTAMP
+    --
+    **Relationships**
+    order()
+  }
+  
+  class OrderBillingAddress <<Address>> {
+    **Primary Key**
+    +id: BIGINT
+    --
+    **Foreign Keys**
+    +order_id: BIGINT
+    --
+    +full_name: VARCHAR(255)
+    +phone: VARCHAR(20)
+    +email: VARCHAR(255)
+    +address_line_1: VARCHAR(255)
+    +address_line_2: VARCHAR(255)
+    +city: VARCHAR(100)
+    +state: VARCHAR(100)
+    +postal_code: VARCHAR(20)
+    +country: VARCHAR(100)
+    +created_at: TIMESTAMP
+    +updated_at: TIMESTAMP
+    --
+    **Relationships**
+    order()
+  }
+  
+  class OrderStatusHistory <<Order>> {
+    **Primary Key**
+    +id: BIGINT
+    --
+    **Foreign Keys**
+    +order_id: BIGINT
+    +changed_by: BIGINT
+    --
+    +from_status: VARCHAR(50)
+    +to_status: VARCHAR(50)
+    +changed_by_type: ENUM
+      - system
+      - customer
+      - admin
+    +note: TEXT
+    +created_at: TIMESTAMP
+    --
+    **Relationships**
+    order()
+    user()
+  }
+}
+
+' ===== PAYMENT ENTITIES =====
+package "Payment Processing" {
+  class Payment <<Payment>> {
+    **Primary Key**
+    +id: BIGINT
+    --
+    **Foreign Keys**
+    +order_id: BIGINT
+    --
+    +payment_method: ENUM
+      - card
+      - cod
+      - bank_transfer
+    +gateway: VARCHAR(50)
+      - stripe
+      - paypal
+      - razorpay
+      - custom
+    +gateway_payment_id: VARCHAR(255)
+    +transaction_id: VARCHAR(255)
+    +status: ENUM
+      - initiated
+      - pending
+      - cod_pending
+      - awaiting_transfer
+      - completed
+      - failed
+      - refunding
+      - refunded
+      - cancelled
+    +amount: DECIMAL(10,2)
+    +currency: VARCHAR(3)
+    +redirect_url: TEXT
+    +gateway_response: JSON
+    +failed_reason: TEXT
+    +paid_at: TIMESTAMP
+    +failed_at: TIMESTAMP
+    +refunded_at: TIMESTAMP
+    +created_at: TIMESTAMP
+    +updated_at: TIMESTAMP
+    --
+    **Relationships**
+    order()
+    refunds()
+    transactions()
+  }
+  
+  class PaymentRefund <<Payment>> {
+    **Primary Key**
+    +id: BIGINT
+    --
+    **Foreign Keys**
+    +payment_id: BIGINT
+    +processed_by: BIGINT
+    --
+    +refund_amount: DECIMAL(10,2)
+    +refund_method: VARCHAR(50)
+    +gateway_refund_id: VARCHAR(255)
+    +status: ENUM
+      - pending
+      - pending_manual
+      - completed
+      - failed
+    +reason: TEXT
+    +admin_note: TEXT
+    +initiated_at: TIMESTAMP
+    +completed_at: TIMESTAMP
+    +estimated_completion: DATE
+    +created_at: TIMESTAMP
+    +updated_at: TIMESTAMP
+    --
+    **Relationships**
+    payment()
+    processedBy()
+  }
+  
+  class PaymentTransaction <<Payment>> {
+    **Primary Key**
+    +id: BIGINT
+    --
+    **Foreign Keys**
+    +payment_id: BIGINT
+    --
+    +transaction_type: ENUM
+      - charge
+      - refund
+      - partial_refund
+      - authorization
+      - capture
+    +transaction_id: VARCHAR(255)
+    +amount: DECIMAL(10,2)
+    +status: VARCHAR(50)
+    +gateway_response: JSON
+    +created_at: TIMESTAMP
+    --
+    **Relationships**
+    payment()
+  }
+}
+
+' ===== PRODUCT INTEGRATION =====
+package "Product Integration" {
+  class Product <<Product>> {
+    **Primary Key**
+    +id: BIGINT
+    --
+    +name: VARCHAR(255)
+    +sku: VARCHAR(100) UNIQUE
+    +price: DECIMAL(10,2)
+    +discount_type: ENUM
+    +discount_value: DECIMAL(10,2)
+    +stock_quantity: INT
+    +is_active: BOOLEAN
+    +...
+    --
+    **Relationships**
+    cartItems()
+    orderItems()
+    stockMovements()
+  }
+  
+  class StockMovement <<Product>> {
+    **Primary Key**
+    +id: BIGINT
+    --
+    **Foreign Keys**
+    +product_id: BIGINT
+    +reference_id: BIGINT
+    --
+    +movement_type: ENUM
+      - order
+      - cancellation
+      - return
+      - adjustment
+      - reservation
+      - release
+    +quantity: INT
+    +reference_type: VARCHAR(50)
+      - order
+      - cart
+      - return
+    +note: TEXT
+    +created_at: TIMESTAMP
+    --
+    **Relationships**
+    product()
+  }
+  
+  class StockReservation <<Product>> {
+    **Primary Key**
+    +id: BIGINT
+    --
+    **Foreign Keys**
+    +product_id: BIGINT
+    +cart_id: BIGINT
+    +order_id: BIGINT
+    --
+    +quantity: INT
+    +reserved_at: TIMESTAMP
+    +expires_at: TIMESTAMP
+    +released_at: TIMESTAMP
+    +status: ENUM
+      - active
+      - expired
+      - released
+      - converted
+    +created_at: TIMESTAMP
+    +updated_at: TIMESTAMP
+    --
+    **Relationships**
+    product()
+    cart()
+    order()
+  }
+}
+
+' ===== NOTIFICATION SYSTEM =====
+package "Notification System" {
+  class OrderNotification <<Notification>> {
+    **Primary Key**
+    +id: BIGINT
+    --
+    **Foreign Keys**
+    +order_id: BIGINT
+    +user_id: BIGINT
+    --
+    +notification_type: ENUM
+      - order_confirmation
+      - payment_confirmation
+      - order_shipped
+      - order_delivered
+      - order_cancelled
+      - payment_reminder
+      - payment_failed
+    +channel: ENUM
+      - email
+      - sms
+      - push
+    +recipient_email: VARCHAR(255)
+    +recipient_phone: VARCHAR(20)
+    +subject: VARCHAR(255)
+    +message: TEXT
+    +status: ENUM
+      - queued
+      - sent
+      - failed
+    +sent_at: TIMESTAMP
+    +failed_reason: TEXT
+    +created_at: TIMESTAMP
+    --
+    **Relationships**
+    order()
+    user()
+  }
+}
+
+' ===== CHECKOUT SESSION =====
+package "Checkout Session" {
+  class CheckoutSession <<Order>> {
+    **Primary Key**
+    +id: BIGINT
+    --
+    **Foreign Keys**
+    +cart_id: BIGINT
+    +user_id: BIGINT
+    --
+    +checkout_token: VARCHAR(64) UNIQUE
+    +session_data: JSON
+      - shipping_address
+      - billing_address
+      - shipping_method
+      - payment_method
+      - totals
+    +expires_at: TIMESTAMP
+    +created_at: TIMESTAMP
+    +updated_at: TIMESTAMP
+    --
+    **Relationships**
+    cart()
+    user()
+  }
+}
+
+' ===== RELATIONSHIPS =====
+
+' User relationships
+User "1" --> "0..*" Cart : has
+User "1" --> "0..*" Order : places
+User "1" --> "0..*" UserAddress : has
+
+' Cart relationships
+Cart "1" --> "0..*" CartItem : contains
+Cart "0..1" --> "0..1" Order : converts to
+Cart "0..1" --> "0..1" Cart : migrated to
+Cart "0..*" --> "0..1" User : belongs to
+Cart "1" --> "0..1" CheckoutSession : has
+
+' Order relationships
+Order "1" --> "1..*" OrderItem : contains
+Order "1" --> "1" OrderShippingAddress : has
+Order "1" --> "0..1" OrderBillingAddress : has
+Order "1" --> "0..*" Payment : has
+Order "1" --> "0..*" OrderStatusHistory : tracks
+Order "1" --> "0..*" OrderNotification : triggers
+Order "0..*" --> "0..1" User : belongs to
+Order "0..1" --> "0..1" Cart : created from
+
+' Order Item relationships
+OrderItem "0..*" --> "1" Product : references
+CartItem "0..*" --> "1" Product : references
+
+' Payment relationships
+Payment "1" --> "0..*" PaymentRefund : has
+Payment "1" --> "0..*" PaymentTransaction : has
+
+' Address relationships
+UserAddress "0..*" --> "1" User : belongs to
+
+' Stock relationships
+StockMovement "0..*" --> "1" Product : affects
+StockReservation "0..*" --> "1" Product : reserves
+StockReservation "0..*" --> "0..1" Cart : for
+StockReservation "0..*" --> "0..1" Order : for
+
+' Notification relationships
+OrderNotification "0..*" --> "1" Order : notifies about
+OrderNotification "0..*" --> "0..1" User : sends to
+
+' Checkout relationships
+CheckoutSession "0..*" --> "1" Cart : for
+CheckoutSession "0..*" --> "0..1" User : belongs to
+
+' Status history relationships
+OrderStatusHistory "0..*" --> "1" Order : tracks
+OrderStatusHistory "0..*" --> "0..1" User : changed by
+
+' Refund relationships
+PaymentRefund "0..*" --> "0..1" User : processed by
+
+' ===== NOTES =====
+
+note right of Cart
+  **Guest Cart:**
+  - user_id = NULL
+  - cart_token identifies session
+  - expires_at = 7 days
+  
+  **Logged Cart:**
+  - user_id set
+  - cart_token = NULL
+  - no expiry
+  
+  **Migration:**
+  - Guest cart marked as migrated
+  - Items merged to logged cart
+end note
+
+note right of Order
+  **Order Number Format:**
+  ORD-YYYYMMDD-####
+  
+  **Status Flow:**
+  pending_payment → confirmed →
+  processing → shipped →
+  delivered → completed
+  
+  **Guest Orders:**
+  - user_id = NULL
+  - guest_email required
+  - Can link after registration
+end note
+
+note right of Payment
+  **Payment Methods:**
+  - Card: Gateway integration
+  - COD: Pay on delivery
+  - Bank Transfer: Manual confirm
+  
+  **Gateway Adapter:**
+  - Supports multiple gateways
+  - Developer can add custom
+  - Webhook signature verification
+end note
+
+note right of OrderItem
+  **Product Snapshot:**
+  Preserves complete product
+  data at order time:
+  - Name, SKU, price
+  - Description, images
+  - Brand, category
+  - Attributes, specs
+  
+  **Why?**
+  - Products may change
+  - Products may be deleted
+  - Order shows historical data
+end note
+
+note right of StockReservation
+  **Temporary Reservation:**
+  - Cart items: 30 min
+  - Released on timeout
+  - Released on item removal
+  - Converted on order
+  
+  **Hard Lock:**
+  - Order placement
+  - Stock quantity reduced
+  - Stock movement recorded
+end note
+
+note left of OrderStatusHistory
+  **Audit Trail:**
+  - Every status change
+  - Who changed it
+  - When it changed
+  - Optional notes
+  
+  **Types:**
+  - system: Automated
+  - customer: User action
+  - admin: Admin action
+end note
+
+note bottom of CheckoutSession
+  **Session Expiry:**
+  15 minutes from creation
+  
+  **Purpose:**
+  - Prevent cart changes
+  - Lock prices temporarily
+  - Store shipping selection
+  - Cache calculations
+end note
+
+' Legend
+legend right
+  **Color Legend:**
+  |= Color |= Entity Type |
+  | <back:#E8F5E9>   </back> | Cart Management |
+  | <back:#FFF3E0>   </back> | Order Management |
+  | <back:#FCE4EC>   </back> | Payment Processing |
+  | <back:#E3F2FD>   </back> | Address Management |
+  | <back:#F3E5F5>   </back> | User Management |
+  | <back:#E0F2F1>   </back> | Product/Stock Integration |
+  | <back:#FFF9C4>   </back> | Notification System |
+  
+  **Key Points:**
+  - NULL-able foreign keys support guest users
+  - JSON fields store flexible data
+  - Status history provides audit trail
+  - Address tables separate for data preservation
+  - Stock movements track all inventory changes
+  
+  **Total Tables:** 17
+  - Core: 9 (Cart, Order, Payment related)
+  - Supporting: 8 (Address, Stock, Notification, Session)
+endlegend
+
+@enduml

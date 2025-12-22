@@ -1,0 +1,295 @@
+@startuml Checkout Process Flow
+!theme plain
+skinparam backgroundColor #F0F0F0
+skinparam activityBackgroundColor #E3F2FD
+skinparam activityBorderColor #1976D2
+skinparam activityStartColor #1976D2
+skinparam activityEndColor #F44336
+skinparam activityDiamondBackgroundColor #FFF9C4
+skinparam activityDiamondBorderColor #FBC02D
+skinparam noteBackgroundColor #F3E5F5
+skinparam noteBorderColor #7B1FA2
+
+title Checkout Process Flow - Arkenstone Order Module
+
+|Customer|
+start
+:User clicks "Proceed to Checkout";
+note right
+  **Entry Point:**
+  GET /api/v1/checkout
+  or
+  POST /api/v1/checkout/initiate
+end note
+
+|#LightBlue|Checkout Service|
+:Receive checkout request;
+
+|#AntiqueWhite|Authentication Gate|
+if (User authenticated?) then (yes)
+  |#LightGreen|Logged User Flow|
+  :Load user's active cart;
+  
+else (no - Guest User)
+  |#LightCoral|Guest Flow|
+  :Get cart from session;
+  
+  if (Session cart exists?) then (yes)
+    :Load session cart;
+  else (no)
+    :Return error - Empty cart;
+    note right
+      ResponseProtocol::error(
+        "Cart is empty",
+        422
+      )
+    end note
+    stop
+  endif
+endif
+
+|#LightBlue|Checkout Service|
+:Validate cart has items;
+
+if (Cart has items?) then (no)
+  :Return ResponseProtocol::error();
+  note right
+    {
+      "status": "error",
+      "message": "Cart is empty"
+    }
+  end note
+  stop
+else (yes)
+  
+  |#LightYellow|Cart Validation|
+  :Validate all cart items;
+  
+  partition "Item-by-Item Validation" {
+    :For each cart item;
+    
+    :Check product still exists and active;
+    :Verify current price matches cart price;
+    :Check stock availability;
+    :Validate product attributes;
+    
+    if (Any validation fails?) then (yes)
+      :Mark item as invalid;
+      :Add to validation_errors array;
+    else (no)
+      :Mark item as valid;
+    endif
+  }
+  
+  if (Has invalid items?) then (yes)
+    :Return cart with validation errors;
+    note right
+      **Response:**
+      {
+        "status": "error",
+        "message": "Cart has invalid items",
+        "errors": {
+          "items": [
+            {
+              "item_id": 5,
+              "product_id": 10,
+              "error": "Price changed",
+              "old_price": 50.00,
+              "new_price": 55.00
+            },
+            {
+              "item_id": 6,
+              "product_id": 11,
+              "error": "Out of stock"
+            }
+          ]
+        },
+        "data": {
+          "action": "update_cart"
+        }
+      }
+    end note
+    stop
+  else (no - all valid)
+    
+    |#Lavender|Address Management|
+    
+    if (User authenticated?) then (yes)
+      :Fetch user's saved addresses;
+      
+      if (Has saved addresses?) then (yes)
+        :Show address selection + new address option;
+      else (no)
+        :Show address form only;
+      endif
+      
+    else (no - guest)
+      :Show address form (required);
+      note right
+        **Guest checkout:**
+        Must collect shipping address
+        Optional: billing address
+        (default = same as shipping)
+      end note
+    endif
+    
+    :Collect/Select shipping address;
+    note right
+      **Address Fields:**
+      - full_name
+      - phone
+      - address_line_1
+      - address_line_2 (optional)
+      - city
+      - state/province
+      - postal_code
+      - country
+      - is_default (logged users)
+    end note
+    
+    :Validate shipping address;
+    
+    if (Validation passed?) then (yes)
+      
+      :Ask for billing address option;
+      
+      if (Same as shipping?) then (yes)
+        :Set billing_address = shipping_address;
+      else (no - different billing)
+        :Collect billing address;
+        :Validate billing address;
+      endif
+      
+      |#LightPink|Shipping Calculation|
+      :Calculate shipping methods and costs;
+      note right
+        **Shipping Options:**
+        Based on:
+        - Destination address
+        - Cart weight/dimensions
+        - Delivery speed
+        
+        Example:
+        - Standard (5-7 days): $5.00
+        - Express (2-3 days): $15.00
+        - Next Day: $25.00
+      end note
+      
+      :User selects shipping method;
+      
+      |#LightCyan|Order Summary Calculation|
+      :Calculate order totals;
+      note right
+        **Order Summary:**
+        subtotal = sum(item.total_price)
+        tax = subtotal * tax_rate
+        shipping_cost = selected_method.cost
+        discount = apply_coupon_if_any()
+        
+        grand_total = subtotal + tax + 
+                      shipping_cost - discount
+      end note
+      
+      |#AntiqueWhite|Payment Method Selection|
+      :Display payment options;
+      note right
+        **Available Methods:**
+        1. Card Payment (Credit/Debit)
+        2. Cash on Delivery (COD)
+        3. Bank Transfer
+        
+        Each method may have:
+        - Different processing fees
+        - Different availability (region-based)
+        - Different workflows
+      end note
+      
+      :User selects payment method;
+      
+      if (Payment method selected?) then (yes)
+        
+        |#LightGreen|Checkout Data Preparation|
+        :Prepare checkout session data;
+        note right
+          **Checkout Session:**
+          {
+            "cart_id": 123,
+            "shipping_address": {...},
+            "billing_address": {...},
+            "shipping_method": "express",
+            "shipping_cost": 15.00,
+            "payment_method": "card",
+            "subtotal": 140.00,
+            "tax": 10.00,
+            "discount": 0.00,
+            "grand_total": 165.00,
+            "expires_at": "2025-12-22 15:30:00"
+          }
+        end note
+        
+        :Save checkout session;
+        :Lock cart for checkout;
+        
+        |#LightBlue|Response|
+        :Return checkout summary;
+        note right
+          **Success Response:**
+          {
+            "status": "success",
+            "message": "Ready for order placement",
+            "data": {
+              "checkout_token": "chk_abc123xyz",
+              "expires_in": 900,
+              "order_summary": {
+                "items": [...],
+                "shipping_address": {...},
+                "billing_address": {...},
+                "payment_method": "card",
+                "totals": {
+                  "subtotal": 140.00,
+                  "tax": 10.00,
+                  "shipping": 15.00,
+                  "discount": 0.00,
+                  "grand_total": 165.00
+                }
+              },
+              "next_step": "place_order"
+            }
+          }
+        end note
+        
+        |Customer|
+        :Review order summary;
+        :Proceed to place order;
+        
+        note right
+          **Next Flow:**
+          → Order Placement Flow
+          (03_Order_Placement_Flow.puml)
+        end note
+        
+        stop
+        
+      else (no - not selected)
+        :Return error - payment method required;
+        stop
+      endif
+      
+    else (no - address validation failed)
+      :Return validation errors;
+      note right
+        {
+          "status": "error",
+          "message": "Invalid address",
+          "errors": {
+            "postal_code": ["Invalid format"],
+            "phone": ["Required field"]
+          }
+        }
+      end note
+      stop
+    endif
+  endif
+endif
+
+@enduml

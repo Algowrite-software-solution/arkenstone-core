@@ -1,0 +1,322 @@
+@startuml Guest to Logged User Cart Migration Flow
+!theme plain
+skinparam backgroundColor #F0F0F0
+skinparam activityBackgroundColor #FFF3E0
+skinparam activityBorderColor #F57C00
+skinparam activityStartColor #F57C00
+skinparam activityEndColor #F44336
+skinparam activityDiamondBackgroundColor #FFF9C4
+skinparam activityDiamondBorderColor #FBC02D
+skinparam noteBackgroundColor #E8EAF6
+skinparam noteBorderColor #3F51B5
+
+title Guest to Logged User Cart Migration Flow
+
+|Guest User|
+start
+:Guest browses products;
+:Guest adds items to cart;
+note right
+  **Guest Cart State:**
+  - cart_token stored in session
+  - user_id = NULL
+  - session_id set
+  - 3 items in cart
+end note
+
+:Guest cart has items;
+
+|#AntiqueWhite|Authentication Trigger|
+if (Guest decides to?) then (Login)
+  
+  |#LightYellow|Login Flow|
+  :Guest navigates to login page;
+  :User enters credentials;
+  :System authenticates user;
+  
+  if (Authentication successful?) then (yes)
+    :User logged in;
+    :Generate auth token;
+    
+    |#LightBlue|Cart Migration Service|
+    :Detect guest cart in session;
+    note right
+      **Migration Trigger:**
+      1. On successful login
+      2. On registration completion
+      3. Session has cart_token
+      4. Guest cart has items
+    end note
+    
+    if (Session has cart_token?) then (yes)
+      :Load guest cart by token;
+      
+      if (Guest cart has items?) then (yes)
+        :Load or create user's logged cart;
+        note right
+          **User Cart Check:**
+          Find cart where:
+          - user_id = authenticated_user_id
+          - status = 'active'
+          
+          If not exists: create new cart
+        end note
+        
+        |#LightGreen|Cart Merge Strategy|
+        partition "Merge Logic" {
+          :For each item in guest cart;
+          
+          :Check if product exists in user cart;
+          
+          if (Product already in user cart?) then (yes)
+            |#Lavender|Merge Item Quantities|
+            :Get existing user cart item;
+            :Calculate merged_quantity = user_qty + guest_qty;
+            
+            :Validate stock for merged quantity;
+            
+            if (Stock available?) then (yes)
+              :Update user cart item quantity;
+              :Update item total_price;
+              note right
+                **Quantity Merge:**
+                User cart: Product A x2
+                Guest cart: Product A x3
+                Result: Product A x5
+              end note
+              
+            else (no - insufficient stock)
+              :Keep max available quantity;
+              :Flag item with stock warning;
+              note right
+                **Stock Conflict:**
+                Available: 4 units
+                Requested: 5 units
+                Result: Keep 4, warn user
+              end note
+            endif
+            
+          else (no - new product for user)
+            |#LightCyan|Add New Item|
+            :Validate product still exists and active;
+            :Validate stock availability;
+            
+            if (Product valid and in stock?) then (yes)
+              :Copy item to user cart;
+              :Update product snapshot if price changed;
+              note right
+                **Item Transfer:**
+                - product_id
+                - quantity
+                - Current unit_price (may differ)
+                - attributes
+                - Calculate new total
+              end note
+              
+            else (no - invalid)
+              :Skip item;
+              :Add to migration_errors list;
+              note right
+                **Skipped Items:**
+                Track unavailable products:
+                - Out of stock
+                - Product deleted
+                - Product deactivated
+              end note
+            endif
+          endif
+        }
+        
+        |#LightBlue|Cart Migration Finalization|
+        :Recalculate user cart totals;
+        note right
+          **Cart Totals:**
+          - subtotal = sum(items.total_price)
+          - tax = subtotal * tax_rate
+          - total = subtotal + tax
+        end note
+        
+        :Update guest cart status to "migrated";
+        :Set guest_cart.migrated_to_cart_id = user_cart.id;
+        :Set guest_cart.migrated_at = now();
+        note right
+          **Guest Cart Archive:**
+          Don't delete guest cart
+          Keep for audit trail
+          Mark as migrated
+        end note
+        
+        :Clear cart_token from session;
+        :Set user cart as active;
+        
+        |#LightPink|Event Dispatch|
+        :Dispatch CartMigrated event;
+        note right
+          **Event::dispatch('cart.migrated')**
+          Data: {
+            guest_cart_id,
+            user_cart_id,
+            user_id,
+            items_merged: 3,
+            items_added: 2,
+            items_skipped: 1,
+            migration_errors: [...]
+          }
+        end note
+        
+        if (Migration had errors/warnings?) then (yes)
+          :Return success with warnings;
+          note right
+            **Response:**
+            {
+              "status": "success",
+              "message": "Cart merged with warnings",
+              "data": {
+                "cart": {...},
+                "warnings": [
+                  {
+                    "type": "stock_limit",
+                    "product": "Gaming Laptop",
+                    "message": "Only 4 available, reduced from 5"
+                  },
+                  {
+                    "type": "product_unavailable",
+                    "product": "Wireless Mouse",
+                    "message": "Product no longer available"
+                  }
+                ],
+                "merged_items": 3,
+                "total_items": 5
+              }
+            }
+          end note
+          
+        else (no - clean migration)
+          :Return migration success;
+          note right
+            **Response:**
+            {
+              "status": "success",
+              "message": "Cart merged successfully",
+              "data": {
+                "cart": {
+                  "id": 10,
+                  "items_count": 5,
+                  "total": 250.00
+                },
+                "merged_items": 3,
+                "new_items": 2
+              }
+            }
+          end note
+        endif
+        
+        |User|
+        :View merged cart;
+        :See all items from guest session;
+        note right
+          **UI Display:**
+          - Show merged cart
+          - Display any warnings
+          - Highlight newly added items
+          - Allow review before checkout
+        end note
+        
+      else (no - guest cart empty)
+        :No migration needed;
+        :Load user's existing cart;
+        note right
+          Guest had empty cart
+          Just load user's cart
+        end note
+      endif
+      
+    else (no - no guest cart)
+      :Load user's existing cart;
+      note right
+        User didn't add items as guest
+        Load their existing cart
+      end note
+    endif
+    
+  else (no - auth failed)
+    :Show error message;
+    :Guest cart remains unchanged;
+    stop
+  endif
+  
+elseif (Register) then
+  |#LightYellow|Registration Flow|
+  :Guest fills registration form;
+  :Submit registration;
+  :Create new user account;
+  
+  if (Registration successful?) then (yes)
+    :Auto-login new user;
+    :Generate auth token;
+    
+    |#LightBlue|Cart Migration Service|
+    note right
+      **Same migration logic as login**
+      Registration triggers identical
+      cart migration process
+    end note
+    
+    :Execute cart migration (same as login);
+    
+    :Return success with merged cart;
+    
+    |User|
+    :New user sees their cart preserved;
+    stop
+    
+  else (no - registration failed)
+    :Show validation errors;
+    :Guest cart remains unchanged;
+    stop
+  endif
+  
+else (Continue as Guest)
+  |#LightCoral|Guest Checkout Flow|
+  :Guest proceeds to checkout;
+  note right
+    **Guest Checkout:**
+    - Cart remains session-based
+    - Must provide email & address
+    - Order created with user_id = NULL
+    - guest_email stored in order
+    - Option to create account after order
+  end note
+  
+  :Complete checkout as guest;
+  
+  |#AntiqueWhite|Post-Order Account Creation|
+  if (Offer account creation?) then (yes)
+    :Show "Create account to track order";
+    
+    if (User accepts?) then (yes)
+      :Create account with order email;
+      :Link order to new user_id;
+      note right
+        **Post-Purchase Registration:**
+        UPDATE orders
+        SET user_id = new_user_id
+        WHERE guest_email = user_email
+        AND user_id IS NULL
+      end note
+      
+      :Dispatch UserRegisteredFromOrder event;
+      stop
+      
+    else (no)
+      :Order remains as guest order;
+      stop
+    endif
+    
+  else (no)
+    :Order completed as guest;
+    stop
+  endif
+endif
+
+@enduml

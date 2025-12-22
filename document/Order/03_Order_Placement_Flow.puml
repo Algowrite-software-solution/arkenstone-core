@@ -1,0 +1,349 @@
+@startuml Order Placement Flow
+!theme plain
+skinparam backgroundColor #F0F0F0
+skinparam activityBackgroundColor #E8EAF6
+skinparam activityBorderColor #3F51B5
+skinparam activityStartColor #3F51B5
+skinparam activityEndColor #F44336
+skinparam activityDiamondBackgroundColor #FFF9C4
+skinparam activityDiamondBorderColor #FBC02D
+skinparam noteBackgroundColor #FFF3E0
+skinparam noteBorderColor #FF6F00
+
+title Order Placement Flow - Arkenstone Order Module
+
+|Customer|
+start
+:User confirms "Place Order";
+note right
+  **Entry Point:**
+  POST /api/v1/orders
+  {
+    checkout_token: "chk_abc123xyz"
+  }
+end note
+
+|#LightBlue|Order Service|
+:Receive order placement request;
+
+|#AntiqueWhite|Checkout Session Validation|
+:Validate checkout_token;
+
+if (Token valid and not expired?) then (yes)
+  :Load checkout session data;
+  :Load associated cart;
+  
+else (no)
+  :Return ResponseProtocol::error();
+  note right
+    {
+      "status": "error",
+      "message": "Invalid or expired checkout session",
+      "errors": {
+        "checkout_token": "Please restart checkout"
+      }
+    }
+  end note
+  stop
+endif
+
+|#LightYellow|Pre-Order Validation|
+:Start database transaction;
+note right
+  **Critical Section:**
+  All validations and stock
+  operations must be atomic
+end note
+
+partition "Final Validations" {
+  :Validate cart not empty;
+  :Validate cart not already converted to order;
+  
+  :Re-validate all cart items;
+  note right
+    **Re-validation needed because:**
+    - Stock may have changed
+    - Prices may have updated
+    - Products may be deactivated
+    - Time passed since checkout
+  end note
+  
+  |#LightPink|Stock Lock & Reserve|
+  :For each cart item;
+  :Acquire row-level lock on product stock;
+  :Check stock availability;
+  
+  if (Stock available for all items?) then (yes)
+    :Reserve stock for each item;
+    note right
+      **Stock Operations:**
+      UPDATE products
+      SET stock_quantity = stock_quantity - ordered_qty
+      WHERE id = ? AND stock_quantity >= ordered_qty
+      
+      **StockService Integration:**
+      - Create stock_reservations record
+      - Update stock_movements table
+      - Link to order (pending confirmation)
+    end note
+    
+  else (no - insufficient stock)
+    :Rollback transaction;
+    :Return ResponseProtocol::error();
+    note right
+      {
+        "status": "error",
+        "message": "Insufficient stock",
+        "errors": {
+          "items": [
+            {
+              "product_id": 10,
+              "requested": 5,
+              "available": 2
+            }
+          ]
+        }
+      }
+    end note
+    stop
+  endif
+}
+
+if (All validations passed?) then (yes)
+  
+  |#LightGreen|Order Creation|
+  :Generate unique order_number;
+  note right
+    **Format Options:**
+    - ORD-20251222-0001
+    - #000001-2025
+    - Custom configurable format
+  end note
+  
+  :Create order record;
+  note right
+    **Order Model:**
+    {
+      "order_number": "ORD-20251222-0001",
+      "user_id": 1 (or NULL for guest),
+      "cart_id": 123,
+      "status": "pending",
+      "payment_status": "pending",
+      "payment_method": "card",
+      "subtotal": 140.00,
+      "tax_amount": 10.00,
+      "shipping_cost": 15.00,
+      "discount_amount": 0.00,
+      "grand_total": 165.00,
+      "currency": "USD",
+      "notes": null,
+      "created_at": "2025-12-22 14:30:00"
+    }
+  end note
+  
+  |#Lavender|Order Items Creation|
+  :For each cart item;
+  :Create order_item record with snapshot;
+  note right
+    **Order Item Snapshot:**
+    Captures product data at order time
+    {
+      "order_id": 1,
+      "product_id": 10,
+      "product_sku": "LAP-001",
+      "product_name": "Gaming Laptop",
+      "quantity": 2,
+      "unit_price": 50.00,
+      "discount_type": "percentage",
+      "discount_value": 10,
+      "discount_amount": 10.00,
+      "tax_rate": 7.5,
+      "tax_amount": 6.75,
+      "subtotal": 100.00,
+      "total_price": 96.75,
+      "product_snapshot": {
+        "description": "...",
+        "image": "...",
+        "attributes": {...}
+      }
+    }
+    
+    **Why Snapshot?**
+    - Product price may change later
+    - Product may be deleted
+    - Order shows historical data
+  end note
+  
+  |#LightCyan|Address Records|
+  :Create shipping_address record;
+  :Link to order;
+  
+  :Create billing_address record;
+  :Link to order;
+  note right
+    **Address Models:**
+    - order_shipping_addresses
+    - order_billing_addresses
+    
+    Separate from user addresses
+    to preserve historical data
+  end note
+  
+  |#AntiqueWhite|Cart Status Update|
+  :Update cart status to "completed";
+  :Set cart.order_id = new_order_id;
+  :Set cart.completed_at = now();
+  
+  |#LightPink|Event Dispatch|
+  :Dispatch OrderCreated event;
+  note right
+    **Event::dispatch('order.created')**
+    Data: {
+      order_id,
+      order_number,
+      user_id,
+      grand_total,
+      payment_method,
+      items_count
+    }
+    
+    **Listeners might:**
+    - Send order confirmation email
+    - Update analytics
+    - Trigger inventory alerts
+    - Create accounting records
+  end note
+  
+  :Commit database transaction;
+  
+  |#LightBlue|Payment Initiation|
+  :Prepare payment processing;
+  note right
+    **Next Flow:**
+    → Payment Processing Flow
+    (04_Payment_Processing_Flow.puml)
+  end note
+  
+  if (Payment method is COD?) then (yes)
+    |#LightGreen|COD Flow|
+    :Create payment record with status "pending";
+    :Set order.payment_status = "cod_pending";
+    :Set order.status = "confirmed";
+    note right
+      **COD Payment:**
+      {
+        "payment_method": "cod",
+        "status": "pending",
+        "amount": 165.00,
+        "payment_due_date": delivery_date
+      }
+      
+      Payment collected on delivery
+    end note
+    
+    :Dispatch OrderConfirmed event;
+    
+    :Return order success response;
+    note right
+      {
+        "status": "success",
+        "message": "Order placed successfully",
+        "data": {
+          "order_id": 1,
+          "order_number": "ORD-20251222-0001",
+          "status": "confirmed",
+          "payment_method": "cod",
+          "grand_total": 165.00,
+          "estimated_delivery": "2025-12-27"
+        }
+      }
+    end note
+    
+    |Customer|
+    :Show order confirmation;
+    :Display order tracking link;
+    stop
+    
+  else (no - Bank Transfer)
+    if (Payment method is Bank Transfer?) then (yes)
+      |#LightYellow|Bank Transfer Flow|
+      :Create payment record with status "awaiting_transfer";
+      :Generate bank transfer instructions;
+      note right
+        **Bank Transfer Payment:**
+        {
+          "payment_method": "bank_transfer",
+          "status": "awaiting_transfer",
+          "amount": 165.00,
+          "reference_number": "BT-ORD-20251222-0001",
+          "bank_details": {
+            "account_name": "...",
+            "account_number": "...",
+            "bank_name": "...",
+            "swift_code": "..."
+          },
+          "payment_deadline": "2025-12-24 23:59:59"
+        }
+      end note
+      
+      :Set order.payment_status = "awaiting_payment";
+      :Set order.status = "pending_payment";
+      
+      :Return order with payment instructions;
+      note right
+        {
+          "status": "success",
+          "message": "Order placed. Awaiting payment.",
+          "data": {
+            "order_id": 1,
+            "order_number": "ORD-20251222-0001",
+            "status": "pending_payment",
+            "payment_instructions": {
+              "method": "bank_transfer",
+              "amount": 165.00,
+              "reference": "BT-ORD-20251222-0001",
+              "bank_details": {...},
+              "deadline": "2025-12-24"
+            }
+          }
+        }
+      end note
+      
+      |Customer|
+      :Show bank transfer details;
+      :Customer makes manual transfer;
+      note right
+        **Manual Process:**
+        - Customer transfers to bank
+        - Admin verifies payment
+        - Admin updates order status
+        - Or: automated via webhook
+      end note
+      stop
+      
+    else (no - Card Payment)
+      |#LightCoral|Card Payment Flow|
+      :Create payment record with status "initiated";
+      :Set order.payment_status = "payment_initiated";
+      :Set order.status = "pending_payment";
+      
+      :Redirect to payment gateway;
+      note right
+        **Gateway Integration:**
+        Uses Payment Adapter pattern
+        
+        Flow continues in:
+        → 04_Payment_Processing_Flow.puml
+      end note
+      stop
+    endif
+  endif
+  
+else (no - validation failed)
+  :Rollback transaction;
+  :Release any locked resources;
+  :Return ResponseProtocol::error();
+  stop
+endif
+
+@enduml

@@ -1,0 +1,317 @@
+@startuml Order Cancellation Flow
+!theme plain
+skinparam backgroundColor #F0F0F0
+skinparam activityBackgroundColor #FFEBEE
+skinparam activityBorderColor #C62828
+skinparam activityStartColor #C62828
+skinparam activityEndColor #424242
+skinparam activityDiamondBackgroundColor #FFF9C4
+skinparam activityDiamondBorderColor #FBC02D
+skinparam noteBackgroundColor #E1F5FE
+skinparam noteBorderColor #0288D1
+
+title Order Cancellation Flow
+
+|Customer/Admin|
+start
+
+if (Who initiates cancellation?) then (Customer)
+  |#LightCoral|Customer Cancellation|
+  :Customer views order details;
+  note right
+    **Entry Point:**
+    GET /api/v1/orders/{orderNumber}
+  end note
+  
+  :Customer clicks "Cancel Order";
+  note right
+    **Request:**
+    POST /api/v1/orders/{id}/cancel
+    {
+      "reason": "Changed mind",
+      "cancellation_note": "Found better deal"
+    }
+  end note
+  
+else (Admin)
+  |#LightYellow|Admin Cancellation|
+  :Admin opens order in admin panel;
+  note right
+    **Entry Point:**
+    GET /api/v1/admin/orders/{id}
+  end note
+  
+  :Admin clicks "Cancel Order";
+  note right
+    **Request:**
+    POST /api/v1/admin/orders/{id}/cancel
+    {
+      "reason": "Out of stock",
+      "cancellation_note": "Supplier issue",
+      "initiated_by": "admin"
+    }
+  end note
+endif
+
+|#LightBlue|Order Service|
+:Receive cancellation request;
+:Load order record;
+
+|#AntiqueWhite|Cancellation Eligibility Check|
+:Check order status;
+
+if (Order status allows cancellation?) then (yes)
+  note right
+    **Cancellable Statuses:**
+    - pending_payment
+    - confirmed
+    - processing
+    
+    **Non-Cancellable:**
+    - shipped
+    - delivered
+    - completed
+    - already cancelled
+    
+    (For shipped/delivered: use return flow)
+  end note
+  
+  if (Order is "shipped", "delivered", or "completed"?) then (yes)
+    :Return error - cannot cancel;
+    note right
+      {
+        "status": "error",
+        "message": "Order cannot be cancelled",
+        "errors": {
+          "status": "Order already shipped. Please use return process."
+        }
+      }
+    end note
+    stop
+    
+  else (no - can cancel)
+    
+    |#Lavender|Authorization Check|
+    if (User is customer?) then (yes)
+      :Verify order belongs to user;
+      
+      if (Order belongs to requesting user?) then (yes)
+        :Authorization passed;
+      else (no)
+        :Return 403 Forbidden;
+        stop
+      endif
+      
+    else (admin)
+      :Admin can cancel any order;
+    endif
+    
+    |#LightPink|Start Cancellation Process|
+    :Start database transaction;
+    
+    :Update order status to "cancelled";
+    :Set cancelled_at = now();
+    :Set cancelled_by = user_id or admin_id;
+    :Save cancellation reason;
+    note right
+      **Order Update:**
+      {
+        "status": "cancelled",
+        "cancellation_reason": "Changed mind",
+        "cancellation_note": "...",
+        "cancelled_by": 1,
+        "cancelled_by_type": "customer", // or "admin"
+        "cancelled_at": "2025-12-22 16:00:00"
+      }
+    end note
+    
+    |#LightCyan|Payment Handling|
+    :Check payment status;
+    
+    if (Payment was completed?) then (yes)
+      :Initiate refund process;
+      note right
+        **Refund Logic:**
+        Depends on payment method
+      end note
+      
+      if (Payment method is?) then (Card/Gateway)
+        :Create refund record;
+        :Call Payment Gateway Adapter;
+        note right
+          **Gateway Refund:**
+          $adapter->refundPayment(
+            $payment->gateway_payment_id,
+            $order->grand_total
+          )
+          
+          Returns:
+          - refund_id
+          - status (pending/completed)
+          - estimated_days
+        end note
+        
+        :Update payment status to "refunding";
+        :Save refund transaction details;
+        note right
+          **Refund Record:**
+          {
+            "payment_id": 1,
+            "refund_amount": 165.00,
+            "refund_method": "original_payment_method",
+            "gateway_refund_id": "ref_abc123",
+            "status": "pending",
+            "initiated_at": "2025-12-22 16:00:00",
+            "estimated_completion": "2025-12-29"
+          }
+        end note
+        
+      elseif (Bank Transfer) then
+        :Mark for manual refund;
+        note right
+          **Manual Refund:**
+          Admin must:
+          1. Process bank transfer back
+          2. Update refund status manually
+          3. Upload proof if needed
+        end note
+        
+        :Create refund record with status "pending_manual";
+        :Notify admin for manual refund;
+        
+      elseif (COD) then
+        :No refund needed;
+        note right
+          **COD Cancellation:**
+          Payment not yet collected
+          Simply cancel order
+        end note
+        
+        :Update payment status to "cancelled";
+      endif
+      
+    else (no - payment pending)
+      :Update payment status to "cancelled";
+      note right
+        **No Refund Needed:**
+        Payment was not completed
+        Just cancel payment record
+      end note
+    endif
+    
+    |#LightGreen|Stock Management|
+    :Release reserved/deducted stock;
+    note right
+      **Stock Service Integration:**
+      For each order item:
+      - Restore stock quantity
+      - Update stock_movements
+      - Cancel stock_reservations
+      
+      Example:
+      Product A: ordered 5 units
+      → Restore 5 units to inventory
+    end note
+    
+    :For each order item;
+    :Call StockService->restoreStock();
+    note right
+      **Stock Restoration:**
+      UPDATE products
+      SET stock_quantity = stock_quantity + returned_qty
+      WHERE id = product_id
+      
+      INSERT INTO stock_movements
+      (product_id, type, quantity, reference_type, reference_id)
+      VALUES
+      (10, 'cancellation', 5, 'order', 1)
+    end note
+    
+    |#LightYellow|Event Dispatch|
+    :Dispatch OrderCancelled event;
+    note right
+      **Event::dispatch('order.cancelled')**
+      Data: {
+        order_id,
+        order_number,
+        cancelled_by,
+        cancelled_by_type,
+        reason,
+        refund_required,
+        refund_amount,
+        cancelled_at
+      }
+      
+      **Event Listeners:**
+      - Send cancellation confirmation email
+      - Send refund notification (if applicable)
+      - Update analytics
+      - Log for audit trail
+      - Notify admin if customer cancelled
+    end note
+    
+    :Commit transaction;
+    
+    |#LightBlue|Response|
+    :Return success response;
+    note right
+      **Success Response:**
+      {
+        "status": "success",
+        "message": "Order cancelled successfully",
+        "data": {
+          "order_id": 1,
+          "order_number": "ORD-20251222-0001",
+          "status": "cancelled",
+          "cancelled_at": "2025-12-22 16:00:00",
+          "refund": {
+            "status": "pending",
+            "amount": 165.00,
+            "method": "original_payment_method",
+            "estimated_days": 7
+          }
+        }
+      }
+    end note
+    
+    if (Refund initiated?) then (yes)
+      |Customer|
+      :Show cancellation confirmation;
+      :Display refund timeline;
+      note right
+        **Customer View:**
+        "Order cancelled successfully!
+        
+        Refund of $165.00 will be
+        processed to your original
+        payment method within 5-7
+        business days."
+      end note
+      
+    else (no refund)
+      |Customer|
+      :Show cancellation confirmation;
+      note right
+        "Order cancelled successfully!"
+      end note
+    endif
+    
+    stop
+    
+  endif
+  
+else (no - already cancelled or invalid status)
+  :Return error - invalid status;
+  note right
+    {
+      "status": "error",
+      "message": "Order cannot be cancelled",
+      "errors": {
+        "status": "Order is already cancelled"
+      }
+    }
+  end note
+  stop
+endif
+
+@enduml

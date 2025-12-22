@@ -1,0 +1,468 @@
+@startuml Payment Processing Flow with Adapter Pattern
+!theme plain
+skinparam backgroundColor #F0F0F0
+skinparam activityBackgroundColor #FCE4EC
+skinparam activityBorderColor #C2185B
+skinparam activityStartColor #C2185B
+skinparam activityEndColor #F44336
+skinparam activityDiamondBackgroundColor #FFF9C4
+skinparam activityDiamondBorderColor #FBC02D
+skinparam noteBackgroundColor #E8F5E9
+skinparam noteBorderColor #388E3C
+skinparam packageBackgroundColor #FFF8E1
+skinparam packageBorderColor #F57F17
+
+title Payment Processing Flow - Gateway Adapter Pattern
+
+|Customer|
+start
+:Initiate payment;
+note right
+  **Entry Point:**
+  After Order Placement
+  (from 03_Order_Placement_Flow)
+end note
+
+|#LightBlue|Payment Service|
+:Receive payment request;
+:Load order and payment record;
+
+:Get configured payment method;
+note right
+  **Payment Record:**
+  {
+    "id": 1,
+    "order_id": 1,
+    "payment_method": "card",
+    "amount": 165.00,
+    "currency": "USD",
+    "status": "initiated",
+    "gateway": "stripe" (or null for COD/Bank)
+  }
+end note
+
+|#AntiqueWhite|Payment Method Router|
+if (Payment Method?) then (Card Payment)
+  
+  |#LightCoral|Card Payment Handler|
+  :Prepare payment data;
+  note right
+    **Payment Payload:**
+    {
+      "order_id": 1,
+      "order_number": "ORD-20251222-0001",
+      "amount": 165.00,
+      "currency": "USD",
+      "customer_email": "user@example.com",
+      "return_url": "https://app.com/payment/callback",
+      "cancel_url": "https://app.com/payment/cancel",
+      "metadata": {
+        "order_id": 1,
+        "user_id": 1
+      }
+    }
+  end note
+  
+  package "Payment Gateway Adapter Layer" #FFFACD {
+    |#LightYellow|Payment Adapter Interface|
+    :Call PaymentAdapterInterface::createPayment();
+    note right
+      **Adapter Interface Contract:**
+      
+      ```php
+      interface PaymentAdapterInterface {
+        public function createPayment(array $data): PaymentResponse;
+        public function capturePayment(string $paymentId): PaymentResponse;
+        public function refundPayment(string $paymentId, float $amount): PaymentResponse;
+        public function getPaymentStatus(string $paymentId): PaymentResponse;
+        public function handleWebhook(Request $request): WebhookResponse;
+      }
+      ```
+      
+      **PaymentResponse Object:**
+      {
+        "success": true/false,
+        "payment_id": "gateway_payment_id",
+        "status": "pending|completed|failed",
+        "redirect_url": "https://gateway.com/pay/...",
+        "message": "...",
+        "raw_response": {...}
+      }
+    end note
+    
+    |#Lavender|Gateway Resolver|
+    :Resolve gateway adapter from config;
+    note right
+      **Configuration:**
+      config/arkenstone.php
+      
+      'payment' => [
+        'default_gateway' => env('PAYMENT_GATEWAY', 'stripe'),
+        'gateways' => [
+          'stripe' => [
+            'adapter' => StripeAdapter::class,
+            'key' => env('STRIPE_KEY'),
+            'secret' => env('STRIPE_SECRET'),
+            'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+          ],
+          'paypal' => [
+            'adapter' => PayPalAdapter::class,
+            // ...
+          ],
+          'razorpay' => [
+            'adapter' => RazorpayAdapter::class,
+            // ...
+          ]
+        ]
+      ]
+      
+      **Developer Integration:**
+      1. Create adapter class implementing interface
+      2. Add to config
+      3. No core module changes needed
+    end note
+    
+    if (Gateway adapter exists?) then (yes)
+      :Load gateway adapter class;
+      note right
+        **Example Adapters:**
+        - StripeAdapter
+        - PayPalAdapter
+        - RazorpayAdapter
+        - BraintreeAdapter
+        - Custom developer adapters
+      end note
+      
+      |#LightPink|Gateway Adapter Implementation|
+      :Execute adapter->createPayment();
+      note right
+        **Adapter Responsibility:**
+        1. Transform data to gateway format
+        2. Make API call to gateway
+        3. Handle gateway response
+        4. Transform back to PaymentResponse
+        5. Handle gateway-specific errors
+        
+        **Example (Stripe):**
+        ```php
+        $session = \Stripe\Checkout\Session::create([
+          'payment_method_types' => ['card'],
+          'line_items' => [...],
+          'mode' => 'payment',
+          'success_url' => $returnUrl,
+          'cancel_url' => $cancelUrl,
+        ]);
+        
+        return new PaymentResponse([
+          'success' => true,
+          'payment_id' => $session->id,
+          'redirect_url' => $session->url,
+          'status' => 'pending'
+        ]);
+        ```
+      end note
+      
+      :Receive PaymentResponse from adapter;
+      
+      if (Gateway returned success?) then (yes)
+        |#LightGreen|Payment Initiated|
+        :Update payment record;
+        note right
+          **Payment Update:**
+          {
+            "gateway_payment_id": "pi_abc123xyz",
+            "status": "pending",
+            "gateway_response": {...},
+            "redirect_url": "https://checkout.stripe.com/...",
+            "updated_at": "2025-12-22 14:35:00"
+          }
+        end note
+        
+        :Dispatch PaymentInitiated event;
+        note right
+          Event::dispatch('payment.initiated', [
+            $payment,
+            $order
+          ])
+        end note
+        
+        :Return redirect URL to frontend;
+        note right
+          **Response:**
+          {
+            "status": "success",
+            "message": "Redirect to payment gateway",
+            "data": {
+              "payment_id": 1,
+              "gateway_payment_id": "pi_abc123xyz",
+              "redirect_url": "https://checkout.stripe.com/...",
+              "expires_in": 1800
+            }
+          }
+        end note
+        
+        |Customer|
+        :Redirect to payment gateway;
+        :Customer enters card details;
+        :Gateway processes payment;
+        
+        |#LightYellow|Gateway Processing|
+        note right
+          **Async Processing:**
+          Customer is on gateway site
+          Payment happens on gateway
+          Gateway will webhook back to app
+        end note
+        
+        if (Payment successful on gateway?) then (yes)
+          :Gateway sends webhook to app;
+          
+          |#LightCyan|Webhook Handler|
+          :Receive webhook POST;
+          note right
+            **Entry Point:**
+            POST /api/webhooks/payment/{gateway}
+            
+            Headers:
+            - Signature verification header
+            - Event type header
+            
+            Body: Gateway-specific format
+          end note
+          
+          :Verify webhook signature;
+          note right
+            **Security Critical:**
+            Must verify webhook is from gateway
+            using signature/secret validation
+            
+            Example (Stripe):
+            ```php
+            $event = \Stripe\Webhook::constructEvent(
+              $payload,
+              $signature,
+              $webhookSecret
+            );
+            ```
+          end note
+          
+          if (Signature valid?) then (yes)
+            :Parse webhook payload;
+            :Extract payment_id and status;
+            
+            :Call adapter->handleWebhook();
+            note right
+              **Adapter transforms:**
+              Gateway format → WebhookResponse
+              
+              {
+                "event_type": "payment.succeeded",
+                "payment_id": "pi_abc123xyz",
+                "status": "completed",
+                "amount": 165.00,
+                "metadata": {...}
+              }
+            end note
+            
+            :Find payment by gateway_payment_id;
+            
+            if (Payment found?) then (yes)
+              :Start database transaction;
+              
+              if (Webhook event is "payment.succeeded"?) then (yes)
+                |#LightGreen|Payment Success Handler|
+                :Update payment status to "completed";
+                :Set payment.paid_at = now();
+                :Set payment.transaction_id from gateway;
+                
+                :Update order.payment_status = "paid";
+                :Update order.status = "confirmed";
+                
+                :Dispatch PaymentCompleted event;
+                note right
+                  **Event::dispatch('payment.completed')**
+                  
+                  Listeners:
+                  - Send payment confirmation email
+                  - Generate invoice
+                  - Update accounting system
+                  - Release stock reservation
+                  - Start fulfillment process
+                end note
+                
+                :Commit transaction;
+                
+                :Return 200 OK to gateway;
+                note right
+                  Gateway expects 200 response
+                  to consider webhook processed
+                end note
+                
+                |Customer|
+                :Gateway redirects to success_url;
+                :Show order confirmation page;
+                note right
+                  GET /payment/success?order=ORD-20251222-0001
+                  
+                  Display:
+                  - Order confirmed
+                  - Payment received
+                  - Tracking information
+                  - Receipt/Invoice link
+                end note
+                stop
+                
+              else (no - payment failed/cancelled)
+                |#LightCoral|Payment Failure Handler|
+                :Update payment status to "failed";
+                :Set payment.failed_reason from webhook;
+                
+                :Update order.payment_status = "failed";
+                :Keep order.status = "pending_payment";
+                
+                :Release stock reservation;
+                note right
+                  **Stock Service:**
+                  Return reserved items back to inventory
+                  since payment failed
+                end note
+                
+                :Dispatch PaymentFailed event;
+                note right
+                  **Event::dispatch('payment.failed')**
+                  
+                  Listeners:
+                  - Send payment failure notification
+                  - Log for analytics
+                  - Trigger retry mechanism
+                end note
+                
+                :Commit transaction;
+                :Return 200 OK to gateway;
+                
+                |Customer|
+                :Gateway redirects to cancel_url;
+                :Show payment failed page;
+                note right
+                  GET /payment/failed?order=ORD-20251222-0001
+                  
+                  Display:
+                  - Payment failed message
+                  - Reason (if available)
+                  - Retry payment button
+                  - Contact support option
+                end note
+                
+                :Option to retry payment;
+                note right
+                  Can create new payment attempt
+                  for same order
+                end note
+                stop
+              endif
+              
+            else (no - payment not found)
+              :Log error - unknown payment;
+              :Return 404 to gateway;
+              stop
+            endif
+            
+          else (no - invalid signature)
+            :Log security warning;
+            :Return 401 Unauthorized;
+            stop
+          endif
+          
+        else (no - customer cancelled)
+          :Gateway redirects to cancel_url;
+          
+          |Customer|
+          :Show cancellation page;
+          :Option to return to checkout;
+          stop
+        endif
+        
+      else (no - gateway error)
+        |#LightCoral|Gateway Error Handler|
+        :Update payment status to "failed";
+        :Log gateway error;
+        
+        :Dispatch PaymentFailed event;
+        
+        :Return ResponseProtocol::error();
+        note right
+          {
+            "status": "error",
+            "message": "Payment gateway error",
+            "errors": {
+              "payment": "Unable to process payment. Please try again."
+            }
+          }
+        end note
+        
+        |Customer|
+        :Show error message;
+        :Option to retry or use different method;
+        stop
+      endif
+      
+    else (no - adapter not found)
+      :Return configuration error;
+      note right
+        {
+          "status": "error",
+          "message": "Payment gateway not configured"
+        }
+      end note
+      stop
+    endif
+  }
+  
+elseif (COD - Cash on Delivery) then
+  |#LightGreen|COD Handler|
+  :Payment already marked as "cod_pending";
+  :Order status already "confirmed";
+  note right
+    **COD Flow:**
+    No immediate payment processing
+    Payment collected at delivery time
+    
+    Delivery person:
+    1. Delivers order
+    2. Collects cash
+    3. Updates payment status via admin panel
+  end note
+  
+  :Return order confirmation;
+  stop
+  
+elseif (Bank Transfer) then
+  |#LightYellow|Bank Transfer Handler|
+  :Payment marked as "awaiting_transfer";
+  :Order status "pending_payment";
+  note right
+    **Bank Transfer Flow:**
+    1. Customer makes manual transfer
+    2. Admin verifies payment (manual or via webhook)
+    3. Admin/System updates order
+    
+    Optional automation:
+    - Bank API webhooks
+    - Daily reconciliation script
+  end note
+  
+  :Display bank transfer instructions;
+  note right
+    **Admin Panel Action:**
+    POST /api/v1/admin/orders/{id}/confirm-payment
+    
+    When payment verified:
+    - Update payment.status = "completed"
+    - Update order.payment_status = "paid"
+    - Update order.status = "confirmed"
+    - Dispatch PaymentCompleted event
+  end note
+  stop
+endif
+
+@enduml

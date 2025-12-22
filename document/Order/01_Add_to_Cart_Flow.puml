@@ -1,0 +1,249 @@
+@startuml Add to Cart Flow
+!theme plain
+skinparam backgroundColor #F0F0F0
+skinparam activityBackgroundColor #E8F5E9
+skinparam activityBorderColor #4CAF50
+skinparam activityStartColor #4CAF50
+skinparam activityEndColor #F44336
+skinparam activityDiamondBackgroundColor #FFF9C4
+skinparam activityDiamondBorderColor #FBC02D
+skinparam noteBackgroundColor #E1F5FE
+skinparam noteBorderColor #0288D1
+
+title Add to Cart Flow - Arkenstone Order Module
+
+|User|
+start
+:User clicks "Add to Cart" button;
+note right
+  **Entry Point:**
+  POST /api/v1/cart/items
+  {product_id, quantity, attributes}
+end note
+
+|#LightBlue|Cart Service|
+:Receive add to cart request;
+
+:Validate product_id and quantity;
+note right
+  **Validations:**
+  - Product exists and is active
+  - Quantity > 0
+  - Product has stock (if not pre-order)
+  - Max quantity limit check
+end note
+
+if (Validation passed?) then (yes)
+  
+  |#AntiqueWhite|Authentication Check|
+  if (User authenticated?) then (yes)
+    |#LightGreen|Logged Cart Handler|
+    :Identify user from auth token;
+    
+    :Load or create user's cart;
+    note right
+      **Cart Model:**
+      - user_id (foreign key)
+      - status (active/completed)
+      - created_at, updated_at
+    end note
+    
+  else (no - Guest User)
+    |#LightCoral|Guest Cart Handler|
+    :Check session for cart_id;
+    
+    if (Session has cart_id?) then (yes)
+      :Load existing session cart;
+    else (no)
+      :Create new session cart;
+      :Generate unique cart_token;
+      :Store cart_token in session;
+      note right
+        **Session Cart:**
+        - cart_token (UUID)
+        - user_id = NULL
+        - session_id
+        - expires_at (7 days)
+      end note
+    endif
+  endif
+  
+  |#LightBlue|Cart Service|
+  :Check if product already in cart;
+  
+  if (Product exists in cart?) then (yes)
+    |#Lavender|Update Existing Item|
+    :Get existing cart item;
+    :Calculate new quantity = old + new;
+    
+    |#LightYellow|Stock Validation|
+    :Call ProductService->checkStock();
+    
+    if (Stock available for new quantity?) then (yes)
+      :Update cart item quantity;
+      :Update cart item total_price;
+      :Update cart updated_at;
+      
+      |#LightCyan|Event System|
+      :Dispatch CartItemUpdated event;
+      note right
+        **Event Data:**
+        - cart_id
+        - cart_item_id
+        - old_quantity
+        - new_quantity
+        - user_id (if logged)
+      end note
+      
+      :Return ResponseProtocol::success();
+      note right
+        **Response:**
+        {
+          "status": "success",
+          "message": "Cart updated",
+          "data": {
+            "cart": {...},
+            "item": {...},
+            "cart_total": 150.00
+          }
+        }
+      end note
+      
+    else (no - insufficient stock)
+      :Return ResponseProtocol::error();
+      note right
+        **Error Response:**
+        {
+          "status": "error",
+          "message": "Insufficient stock",
+          "errors": {
+            "quantity": "Only X items available"
+          }
+        }
+      end note
+      stop
+    endif
+    
+  else (no - new item)
+    |#Lavender|Add New Item|
+    
+    |#LightYellow|Product Data Snapshot|
+    :Fetch product details from ProductService;
+    note right
+      **Snapshot Data:**
+      - product_id
+      - product_name
+      - product_sku
+      - unit_price (current price)
+      - discount_type
+      - discount_value
+      - tax_rate
+      - product_image (primary)
+    end note
+    
+    :Calculate item total_price;
+    note right
+      **Price Calculation:**
+      base_price = unit_price * quantity
+      if (discount_exists) {
+        discount_amount = calculate_discount()
+        subtotal = base_price - discount_amount
+      }
+      tax_amount = subtotal * tax_rate
+      total = subtotal + tax_amount
+    end note
+    
+    |#LightYellow|Stock Validation|
+    :Call ProductService->checkStock();
+    
+    if (Stock available?) then (yes)
+      :Create new cart_item record;
+      :Link item to cart;
+      :Update cart updated_at;
+      
+      |#LightCyan|Event System|
+      :Dispatch CartItemAdded event;
+      note right
+        **Event Data:**
+        - cart_id
+        - cart_item_id
+        - product_id
+        - quantity
+        - unit_price
+        - user_id (if logged)
+      end note
+      
+      |#LightPink|Optional: Stock Reservation|
+      :Call StockService->reserveTemporary();
+      note right
+        **Soft Reservation:**
+        - Reserve for 30 minutes
+        - Release on cart expiry
+        - Release on item removal
+        - Optional feature toggle
+      end note
+      
+      :Calculate cart totals;
+      :Return ResponseProtocol::success();
+      note right
+        **Response:**
+        {
+          "status": "success",
+          "message": "Product added to cart",
+          "data": {
+            "cart": {
+              "id": 1,
+              "items_count": 3,
+              "subtotal": 140.00,
+              "tax": 10.00,
+              "total": 150.00
+            },
+            "item": {
+              "id": 5,
+              "product_id": 10,
+              "quantity": 2,
+              "unit_price": 50.00,
+              "total_price": 100.00
+            }
+          }
+        }
+      end note
+      
+    else (no - out of stock)
+      :Return ResponseProtocol::error();
+      note right
+        {
+          "status": "error",
+          "message": "Product out of stock",
+          "errors": {
+            "stock": "This product is currently unavailable"
+          }
+        }
+      end note
+      stop
+    endif
+  endif
+  
+else (no - validation failed)
+  :Return ResponseProtocol::error();
+  note right
+    **Validation Errors:**
+    {
+      "status": "error",
+      "message": "Validation failed",
+      "errors": {
+        "product_id": ["Product not found"],
+        "quantity": ["Quantity must be positive"]
+      }
+    }
+  end note
+  stop
+endif
+
+|User|
+:Receive success response;
+:Update UI - show cart count;
+:Display success message;
+stop
+
+@enduml

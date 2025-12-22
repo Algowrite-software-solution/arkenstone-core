@@ -1,0 +1,255 @@
+@startuml Order Status Management Flow
+!theme plain
+skinparam backgroundColor #F0F0F0
+skinparam activityBackgroundColor #F3E5F5
+skinparam activityBorderColor #7B1FA2
+skinparam activityStartColor #7B1FA2
+skinparam activityEndColor #F44336
+skinparam activityDiamondBackgroundColor #FFF9C4
+skinparam activityDiamondBorderColor #FBC02D
+skinparam noteBackgroundColor #E0F2F1
+skinparam noteBorderColor #00897B
+
+title Order Status Management & Lifecycle Flow
+
+|#LightBlue|Order Lifecycle|
+start
+
+partition "Order Status States" {
+  note right
+    **Status Flow:**
+    pending_payment → confirmed → processing → 
+    shipped → delivered → completed
+    
+    **Alternative Flows:**
+    Any status → cancelled
+    delivered → returned
+    completed → refunded (partial/full)
+  end note
+}
+
+:Order Created (from Order Placement);
+note right
+  **Initial State:**
+  status = "pending_payment"
+  payment_status = "pending"
+end note
+
+|#AntiqueWhite|Payment Status Check|
+if (Payment completed?) then (yes)
+  :Set status = "confirmed";
+  :Set payment_status = "paid";
+  
+  |#LightGreen|Order Confirmed State|
+  :Dispatch OrderConfirmed event;
+  note right
+    **Event::dispatch('order.confirmed')**
+    
+    Triggers:
+    - Send order confirmation email
+    - Notify warehouse/fulfillment
+    - Update sales analytics
+    - Start processing timer
+  end note
+  
+  :Order enters processing queue;
+  
+  |#Lavender|Processing State|
+  :Admin/System updates status;
+  note right
+    **API Endpoint:**
+    PUT /api/v1/admin/orders/{id}/status
+    {
+      "status": "processing",
+      "note": "Preparing items for shipment"
+    }
+  end note
+  
+  :Set status = "processing";
+  :Set processing_at = now();
+  
+  :Dispatch OrderProcessing event;
+  note right
+    **Processing Actions:**
+    - Warehouse picks items
+    - Quality check
+    - Packaging
+    - Generate shipping label
+  end note
+  
+  :Admin prepares shipment;
+  
+  :Admin updates to shipped;
+  note right
+    **API Endpoint:**
+    PUT /api/v1/admin/orders/{id}/ship
+    {
+      "status": "shipped",
+      "tracking_number": "TRK123456789",
+      "carrier": "FedEx",
+      "estimated_delivery": "2025-12-27"
+    }
+  end note
+  
+  |#LightCyan|Shipped State|
+  :Set status = "shipped";
+  :Set shipped_at = now();
+  :Save tracking information;
+  
+  :Dispatch OrderShipped event;
+  note right
+    **Event::dispatch('order.shipped')**
+    
+    Triggers:
+    - Send shipping notification email
+    - SMS with tracking link
+    - Update order timeline
+    - Enable tracking page
+  end note
+  
+  :Customer tracks shipment;
+  note right
+    **Customer Access:**
+    GET /api/v1/orders/{orderNumber}/tracking
+    
+    Returns:
+    - Current location
+    - Delivery status
+    - Estimated delivery date
+    - Carrier tracking URL
+  end note
+  
+  :Shipment in transit;
+  
+  |#LightPink|Delivery Confirmation|
+  if (Delivery confirmation?) then (Automatic from carrier)
+    :Carrier webhook updates status;
+    note right
+      **Carrier Integration:**
+      POST /api/webhooks/shipping/{carrier}
+      
+      Payload:
+      {
+        "tracking_number": "TRK123456789",
+        "status": "delivered",
+        "delivered_at": "2025-12-27 15:30:00",
+        "signature": "John Doe"
+      }
+    end note
+    
+  else (Manual by admin)
+    :Admin marks as delivered;
+    note right
+      PUT /api/v1/admin/orders/{id}/deliver
+      {
+        "status": "delivered",
+        "delivered_at": "2025-12-27 15:30:00",
+        "note": "Delivered to customer"
+      }
+    end note
+  endif
+  
+  |#LightGreen|Delivered State|
+  :Set status = "delivered";
+  :Set delivered_at = now();
+  
+  :Dispatch OrderDelivered event;
+  note right
+    **Event::dispatch('order.delivered')**
+    
+    Triggers:
+    - Send delivery confirmation
+    - Request review/feedback
+    - Start return window timer
+    - COD payment confirmation (if applicable)
+  end note
+  
+  if (Payment method is COD?) then (yes)
+    :Update payment_status to "paid";
+    note right
+      **COD Completion:**
+      Delivery person confirms cash collected
+      Admin updates payment status
+    end note
+  endif
+  
+  :Start return window (e.g., 7 days);
+  
+  |#Lavender|Post-Delivery Period|
+  if (Return requested within window?) then (yes)
+    :Handle return flow;
+    note right
+      **Return Process:**
+      → Separate flow for returns
+      → Customer initiates return
+      → Admin approves/rejects
+      → Customer ships back
+      → Refund processed
+    end note
+    stop
+    
+  else (no - window expired)
+    :Auto-complete after return window;
+    note right
+      **Scheduled Job:**
+      Daily cron checks orders:
+      - delivered_at > 7 days ago
+      - status = "delivered"
+      → Update to "completed"
+    end note
+  endif
+  
+  |#LightGreen|Completed State|
+  :Set status = "completed";
+  :Set completed_at = now();
+  
+  :Dispatch OrderCompleted event;
+  note right
+    **Event::dispatch('order.completed')**
+    
+    Triggers:
+    - Final confirmation email
+    - Loyalty points credit
+    - Review reminder
+    - Archive order data
+  end note
+  
+  :Order lifecycle finished;
+  stop
+  
+else (no - payment pending/failed)
+  |#LightCoral|Pending Payment State|
+  :Wait for payment;
+  
+  partition "Payment Timeout Check" {
+    if (Payment deadline passed?) then (yes)
+      :Set status = "payment_expired";
+      
+      :Release stock reservation;
+      note right
+        **Scheduled Job:**
+        Check orders with:
+        - payment_status = "pending"
+        - created_at > 48 hours ago
+        → Cancel and release stock
+      end note
+      
+      :Dispatch OrderExpired event;
+      :Send payment reminder/cancellation email;
+      stop
+      
+    else (no - still within window)
+      :Keep status = "pending_payment";
+      :Send payment reminder;
+      note right
+        **Reminder Schedule:**
+        - 24 hours: First reminder
+        - 36 hours: Final reminder
+        - 48 hours: Auto-cancel
+      end note
+      stop
+    endif
+  }
+endif
+
+@enduml
