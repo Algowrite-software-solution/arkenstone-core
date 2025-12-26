@@ -1,0 +1,126 @@
+@startuml Stock CRUD Operations Sequence Diagram
+!theme plain
+autonumber
+
+actor "Admin" as admin
+participant "StockController" as controller
+participant "StockService" as service
+participant "Stock" as model
+participant "Event" as event
+database "Database" as db
+
+== Create Stock Item ==
+admin -> controller: POST /api/stocks
+activate controller
+
+controller -> controller: validate request data
+controller -> service: createStock(data)
+activate service
+
+service -> model: create(data)
+activate model
+model -> db: INSERT INTO stocks
+db --> model: stock record
+model --> service: Stock object
+deactivate model
+
+service -> event: dispatch('stock.created', stock)
+activate event
+event --> service: 
+deactivate event
+
+service --> controller: Stock object
+deactivate service
+
+controller --> admin: 201 Created + Stock data
+deactivate controller
+
+== Read Stock Item ==
+admin -> controller: GET /api/stocks/{id}
+activate controller
+
+controller -> service: getStock(id)
+activate service
+
+service -> model: with(['supplier', 'variationOptions', 'reservations'])->find(id)
+activate model
+model -> db: SELECT * FROM stocks WHERE id = ?
+db --> model: stock record
+model --> service: Stock object
+deactivate model
+
+service --> controller: Stock object
+deactivate service
+
+controller --> admin: 200 OK + Stock data
+deactivate controller
+
+== Update Stock Item ==
+admin -> controller: PUT /api/stocks/{id}
+activate controller
+
+controller -> controller: validate request data
+controller -> service: updateStock(id, data)
+activate service
+
+service -> model: find(id)
+activate model
+model -> db: SELECT
+db --> model: stock record
+deactivate model
+
+service -> model: update(data)
+activate model
+model -> db: UPDATE stocks WHERE id = ?
+db --> model: updated record
+model --> service: Stock object
+deactivate model
+
+service -> event: dispatch('stock.updated', stock)
+activate event
+event --> service: 
+deactivate event
+
+service --> controller: Stock object
+deactivate service
+
+controller --> admin: 200 OK + Updated stock data
+deactivate controller
+
+== Delete Stock Item ==
+admin -> controller: DELETE /api/stocks/{id}
+activate controller
+
+controller -> service: deleteStock(id)
+activate service
+
+service -> model: find(id)
+activate model
+model -> db: SELECT
+db --> model: stock record
+deactivate model
+
+service -> service: check if has active reservations\n(status IN ['pending','checking_out','committed'])
+alt has active reservations
+    service --> controller: error: cannot delete
+    controller --> admin: 422 Unprocessable + error
+else no active reservations
+    service -> model: softDelete()
+    activate model
+    model -> db: UPDATE stocks SET deleted_at = NOW()
+    db --> model: success
+    deactivate model
+    
+    service -> event: dispatch('stock.deleted', stock)
+    activate event
+    event --> service: 
+    deactivate event
+    
+    service --> controller: true
+    deactivate service
+    
+    controller --> admin: 204 No Content
+end
+deactivate controller
+
+@enduml
