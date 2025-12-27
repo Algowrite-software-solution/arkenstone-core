@@ -1,321 +1,161 @@
-@startuml Order Module - Complete Use Case Diagram
+@startuml Order Module - Complete Use Case Diagram (Clean Layout)
 !theme plain
 skinparam actorStyle awesome
 skinparam packageStyle rectangle
+skinparam nodesep 80
+skinparam ranksep 100
 
-' Title
 title Order Module - Complete Use Case Diagram\n(Arkenstone Core E-Commerce Package)
 
-' Actors
-actor "Guest User" as Guest #LightCoral
-actor "Logged User" as User #LightGreen
-actor "Customer\n(Guest or Logged)" as Customer #LightBlue
-actor "Admin" as Admin #Orange
-actor "Payment Gateway" as Gateway #Yellow
-actor "Shipping Carrier" as Carrier #Cyan
-actor "System Scheduler" as Scheduler #Pink
+' ===== LEFT SIDE: USER ACTORS =====
+left to right direction
 
-' Order Module Package
-package "Order Module" {
+actor "Guest User" as Guest #LightCoral
+actor "Logged User" as User #LightGreen  
+actor "Customer" as Customer #LightBlue
+
+' ===== CENTER: MAIN WORKFLOWS =====
+package "Order Module Core Workflows" {
   
-  ' ===== CART MANAGEMENT =====
-  package "Cart Management" #E8F5E9 {
-    usecase "Add to Cart" as UC_AddCart
-    usecase "Update Cart Item\nQuantity" as UC_UpdateCart
-    usecase "Remove from Cart" as UC_RemoveCart
-    usecase "View Cart" as UC_ViewCart
-    usecase "Clear Cart" as UC_ClearCart
-    usecase "Validate Cart Items" as UC_ValidateCart
-    usecase "Apply Coupon Code" as UC_ApplyCoupon
-    usecase "Remove Coupon" as UC_RemoveCoupon
-    
-    ' NEW: Cart Migration
-    usecase "Migrate Guest Cart\nto Logged User" as UC_MigrateCart
-    usecase "Merge Cart Items" as UC_MergeCart
+  rectangle "Cart" #E8F5E9 {
+    (Add to Cart) as AddCart
+    (Update Quantity) as UpdateCart
+    (View Cart) as ViewCart
+    (Apply Coupon) as ApplyCoupon
   }
   
-  ' ===== CHECKOUT PROCESS =====
-  package "Checkout Process" #E3F2FD {
-    usecase "Initiate Checkout" as UC_InitCheckout
-    usecase "Select/Add\nShipping Address" as UC_ShippingAddress
-    usecase "Select/Add\nBilling Address" as UC_BillingAddress
-    usecase "Validate Address" as UC_ValidateAddress
-    usecase "Calculate Shipping\nMethods & Cost" as UC_CalcShipping
-    usecase "Select Shipping\nMethod" as UC_SelectShipping
-    usecase "Calculate Order\nTotals" as UC_CalcTotals
-    usecase "Select Payment\nMethod" as UC_SelectPayment
-    usecase "Review Order\nSummary" as UC_ReviewOrder
+  rectangle "Checkout" #E3F2FD {
+    (Initiate Checkout) as InitCheckout
+    (Add Address) as Address
+    (Select Shipping) as Shipping
+    (Select Payment) as Payment
+    (Review Order) as Review
   }
   
-  ' ===== ORDER MANAGEMENT =====
-  package "Order Management" #FFF3E0 {
-    usecase "Place Order" as UC_PlaceOrder
-    usecase "Lock Stock for\nOrder" as UC_LockStock
-    usecase "Create Order\nSnapshot" as UC_OrderSnapshot
-    usecase "View Order Details" as UC_ViewOrder
-    usecase "View Order History" as UC_OrderHistory
-    usecase "Track Order Status" as UC_TrackOrder
-    usecase "Update Order Status" as UC_UpdateStatus
-    usecase "Cancel Order" as UC_CancelOrder
-    usecase "Request Return" as UC_RequestReturn
-    usecase "Process Return" as UC_ProcessReturn
-    usecase "View Orders List\n(Admin)" as UC_AdminOrders
-    usecase "Search Orders" as UC_SearchOrders
-    usecase "Filter Orders by\nStatus" as UC_FilterOrders
-    usecase "Export Orders" as UC_ExportOrders
-    usecase "Add Order Notes\n(Admin)" as UC_AddNotes
+  rectangle "Order" #FFF3E0 {
+    (Place Order) as PlaceOrder
+    (View Orders) as ViewOrders
+    (Track Order) as TrackOrder
+    (Cancel Order) as CancelOrder
   }
   
-  ' ===== PAYMENT PROCESSING =====
-  package "Payment Processing" #FCE4EC {
-    usecase "Initiate Payment" as UC_InitPayment
-    usecase "Process Card\nPayment" as UC_CardPayment
-    usecase "Process COD\nPayment" as UC_CODPayment
-    usecase "Process Bank\nTransfer" as UC_BankTransfer
-    usecase "Redirect to Payment\nGateway" as UC_RedirectGateway
-    usecase "Handle Payment\nWebhook" as UC_HandleWebhook
-    usecase "Verify Webhook\nSignature" as UC_VerifyWebhook
-    usecase "Update Payment\nStatus" as UC_UpdatePayment
-    usecase "Confirm Payment\nSuccess" as UC_ConfirmPayment
-    usecase "Handle Payment\nFailure" as UC_PaymentFailed
-    usecase "Retry Failed\nPayment" as UC_RetryPayment
-    usecase "Process Refund" as UC_ProcessRefund
-    usecase "Manual Payment\nConfirmation (Admin)" as UC_ManualPayment
-    usecase "View Payment\nDetails" as UC_ViewPayment
-  }
-  
-  ' ===== SHIPPING & FULFILLMENT =====
-  package "Shipping & Fulfillment" #E8EAF6 {
-    usecase "Mark Order as\nProcessing" as UC_MarkProcessing
-    usecase "Generate Shipping\nLabel" as UC_GenShippingLabel
-    usecase "Update Tracking\nNumber" as UC_UpdateTracking
-    usecase "Mark as Shipped" as UC_MarkShipped
-    usecase "Track Shipment" as UC_TrackShipment
-    usecase "Receive Delivery\nWebhook" as UC_DeliveryWebhook
-    usecase "Mark as Delivered" as UC_MarkDelivered
-    usecase "Confirm Delivery\n(COD)" as UC_ConfirmDelivery
-  }
-  
-  ' ===== NOTIFICATIONS =====
-  package "Notifications" #F3E5F5 {
-    usecase "Send Order\nConfirmation" as UC_NotifyOrderConf
-    usecase "Send Payment\nConfirmation" as UC_NotifyPayment
-    usecase "Send Shipping\nNotification" as UC_NotifyShipped
-    usecase "Send Delivery\nNotification" as UC_NotifyDelivered
-    usecase "Send Cancellation\nNotification" as UC_NotifyCancelled
-    usecase "Send Payment\nReminder" as UC_NotifyReminder
-  }
-  
-  ' ===== SCHEDULED TASKS =====
-  package "Scheduled Tasks" #FFEBEE {
-    usecase "Cleanup Expired\nGuest Carts" as UC_CleanupCarts
-    usecase "Cancel Pending\nPayment Orders" as UC_CancelPending
-    usecase "Auto-Complete\nDelivered Orders" as UC_AutoComplete
-    usecase "Send Payment\nReminder Emails" as UC_ReminderEmails
-    usecase "Sync Order Status\nwith Carriers" as UC_SyncStatus
-  }
-  
-  ' ===== STOCK INTEGRATION =====
-  package "Stock Integration" #E0F2F1 {
-    usecase "Check Stock\nAvailability" as UC_CheckStock
-    usecase "Reserve Stock\n(Temporary)" as UC_ReserveStock
-    usecase "Deduct Stock\n(Order Placed)" as UC_DeductStock
-    usecase "Restore Stock\n(Cancellation)" as UC_RestoreStock
-    usecase "Update Stock\nMovements" as UC_UpdateStockMov
-  }
-  
-  ' ===== ADDRESS MANAGEMENT =====
-  package "Address Management" #FFF9C4 {
-    usecase "Save Address to\nUser Profile" as UC_SaveAddress
-    usecase "View Saved\nAddresses" as UC_ViewAddresses
-    usecase "Edit Saved Address" as UC_EditAddress
-    usecase "Delete Address" as UC_DeleteAddress
-    usecase "Set Default Address" as UC_SetDefaultAddress
+  rectangle "Payment" #FCE4EC {
+    (Pay with Card) as CardPay
+    (Pay with COD) as CODPay
+    (Pay via Bank) as BankPay
+    (Retry Payment) as RetryPay
   }
 }
 
-' ===== RELATIONSHIPS: GUEST USER =====
-Guest --> UC_AddCart
-Guest --> UC_ViewCart
-Guest --> UC_UpdateCart
-Guest --> UC_RemoveCart
-Guest --> UC_InitCheckout
-Guest --> UC_PlaceOrder
+' ===== RIGHT SIDE: ADMIN & SYSTEM ACTORS =====
+actor "Admin" as Admin #Orange
+actor "Payment\nGateway" as Gateway #Yellow
+actor "System" as System #Pink
 
-' ===== RELATIONSHIPS: LOGGED USER =====
-User --> UC_AddCart
-User --> UC_ViewCart
-User --> UC_UpdateCart
-User --> UC_RemoveCart
-User --> UC_ClearCart
-User --> UC_ApplyCoupon
-User --> UC_RemoveCoupon
-User --> UC_InitCheckout
-User --> UC_PlaceOrder
-User --> UC_ViewOrder
-User --> UC_OrderHistory
-User --> UC_TrackOrder
-User --> UC_CancelOrder
-User --> UC_RequestReturn
-User --> UC_RetryPayment
+' ===== BOTTOM: SUPPORTING SERVICES =====
+package "Supporting Services" {
+  
+  rectangle "Address Management" #FFF9C4 {
+    (Saved Addresses) as SavedAddr
+    (Edit Address) as EditAddr
+  }
+  
+  rectangle "Stock Management" #E0F2F1 {
+    (Check Stock) as CheckStock
+    (Reserve Stock) as ReserveStock
+    (Deduct Stock) as DeductStock
+  }
+  
+  rectangle "Admin Operations" #FFE0B2 {
+    (Manage Orders) as ManageOrders
+    (Update Status) as UpdateStatus
+    (Process Refund) as Refund
+    (Manual Confirm) as ManualConfirm
+  }
+  
+  rectangle "Automated Tasks" #FFCDD2 {
+    (Cleanup Carts) as Cleanup
+    (Cancel Expired) as CancelExpired
+    (Auto-Complete) as AutoComplete
+  }
+}
 
-' User-specific address management
-User --> UC_SaveAddress
-User --> UC_ViewAddresses
-User --> UC_EditAddress
-User --> UC_DeleteAddress
-User --> UC_SetDefaultAddress
+' ===== GUEST USER CONNECTIONS =====
+Guest -down-> AddCart
+Guest -down-> ViewCart
+Guest -down-> InitCheckout
 
-' ===== RELATIONSHIPS: CUSTOMER (Both) =====
-Customer --> UC_ShippingAddress
-Customer --> UC_BillingAddress
-Customer --> UC_SelectShipping
-Customer --> UC_SelectPayment
-Customer --> UC_ReviewOrder
-Customer --> UC_ViewPayment
-Customer --> UC_TrackShipment
+' ===== LOGGED USER CONNECTIONS =====
+User -down-> AddCart
+User -down-> ViewCart
+User -down-> ApplyCoupon
+User -down-> InitCheckout
+User -down-> ViewOrders
+User -down-> TrackOrder
+User -down-> CancelOrder
+User -down-> SavedAddr
 
-' ===== RELATIONSHIPS: ADMIN =====
-Admin --> UC_AdminOrders
-Admin --> UC_SearchOrders
-Admin --> UC_FilterOrders
-Admin --> UC_ExportOrders
-Admin --> UC_ViewOrder
-Admin --> UC_UpdateStatus
-Admin --> UC_CancelOrder
-Admin --> UC_ProcessReturn
-Admin --> UC_AddNotes
-Admin --> UC_ManualPayment
-Admin --> UC_MarkProcessing
-Admin --> UC_GenShippingLabel
-Admin --> UC_UpdateTracking
-Admin --> UC_MarkShipped
-Admin --> UC_MarkDelivered
-Admin --> UC_ProcessRefund
+' ===== CUSTOMER CONNECTIONS (CHECKOUT) =====
+Customer -down-> Address
+Customer -down-> Shipping
+Customer -down-> Payment
+Customer -down-> Review
 
-' ===== RELATIONSHIPS: PAYMENT GATEWAY =====
-Gateway --> UC_HandleWebhook
-Gateway --> UC_ConfirmPayment
-Gateway --> UC_PaymentFailed
-Gateway ..> UC_ProcessRefund : <<callback>>
+' ===== ADMIN CONNECTIONS =====
+Admin -down-> ManageOrders
+Admin -down-> UpdateStatus
+Admin -down-> Refund
+Admin -down-> ManualConfirm
 
-' ===== RELATIONSHIPS: SHIPPING CARRIER =====
-Carrier --> UC_DeliveryWebhook
-Carrier ..> UC_TrackShipment : <<provides data>>
+' ===== GATEWAY CONNECTIONS =====
+Gateway -down-> CardPay
+Gateway -down-> Refund
 
-' ===== RELATIONSHIPS: SYSTEM SCHEDULER =====
-Scheduler --> UC_CleanupCarts
-Scheduler --> UC_CancelPending
-Scheduler --> UC_AutoComplete
-Scheduler --> UC_ReminderEmails
-Scheduler --> UC_SyncStatus
+' ===== SYSTEM CONNECTIONS =====
+System -down-> Cleanup
+System -down-> CancelExpired
+System -down-> AutoComplete
 
-' ===== INCLUDE RELATIONSHIPS =====
-UC_AddCart ..> UC_CheckStock : <<include>>
-UC_AddCart ..> UC_ReserveStock : <<include>>
-UC_UpdateCart ..> UC_CheckStock : <<include>>
+' ===== WORKFLOW SEQUENCES (LEFT TO RIGHT) =====
+AddCart -right-> InitCheckout
+InitCheckout -right-> PlaceOrder
+PlaceOrder -right-> CardPay
+PlaceOrder -right-> CODPay
+PlaceOrder -right-> BankPay
 
-UC_InitCheckout ..> UC_ValidateCart : <<include>>
-UC_InitCheckout ..> UC_CalcTotals : <<include>>
+' ===== INCLUDE RELATIONSHIPS (MINIMAL) =====
+AddCart .down.> CheckStock : <<include>>
+AddCart .down.> ReserveStock : <<include>>
+PlaceOrder .down.> DeductStock : <<include>>
+InitCheckout .down.> Address : <<include>>
+Address .down.> EditAddr : <<include>>
 
-UC_PlaceOrder ..> UC_ValidateCart : <<include>>
-UC_PlaceOrder ..> UC_LockStock : <<include>>
-UC_PlaceOrder ..> UC_DeductStock : <<include>>
-UC_PlaceOrder ..> UC_OrderSnapshot : <<include>>
-UC_PlaceOrder ..> UC_InitPayment : <<include>>
-
-UC_ShippingAddress ..> UC_ValidateAddress : <<include>>
-UC_BillingAddress ..> UC_ValidateAddress : <<include>>
-
-UC_CalcTotals ..> UC_CalcShipping : <<include>>
-
-UC_InitPayment ..> UC_SelectPayment : <<include>>
-
-UC_CardPayment ..> UC_RedirectGateway : <<include>>
-UC_HandleWebhook ..> UC_VerifyWebhook : <<include>>
-UC_HandleWebhook ..> UC_UpdatePayment : <<include>>
-
-UC_ConfirmPayment ..> UC_NotifyPayment : <<include>>
-UC_PlaceOrder ..> UC_NotifyOrderConf : <<include>>
-UC_MarkShipped ..> UC_NotifyShipped : <<include>>
-UC_MarkDelivered ..> UC_NotifyDelivered : <<include>>
-UC_CancelOrder ..> UC_NotifyCancelled : <<include>>
-
-UC_CancelOrder ..> UC_RestoreStock : <<include>>
-UC_CancelOrder ..> UC_ProcessRefund : <<extend>>
-
-UC_MigrateCart ..> UC_MergeCart : <<include>>
-UC_MigrateCart ..> UC_CheckStock : <<include>>
-
-UC_MarkShipped ..> UC_UpdateTracking : <<include>>
-
-UC_CancelPending ..> UC_RestoreStock : <<include>>
-
-UC_DeductStock ..> UC_UpdateStockMov : <<include>>
-UC_RestoreStock ..> UC_UpdateStockMov : <<include>>
-
-' ===== EXTEND RELATIONSHIPS =====
-UC_CODPayment ..> UC_ConfirmDelivery : <<extend>>
-UC_BankTransfer ..> UC_ManualPayment : <<extend>>
-
-' ===== NOTES =====
+' ===== NOTES (POSITIONED) =====
 note right of Guest
-  **Guest User:**
-  - Session-based cart
-  - Must provide email & address
-  - Can create account after order
-  - Cart expires in 7 days
+  **Guest:**
+  Session cart (7 days)
+  Email required
 end note
 
 note right of User
-  **Logged User:**
-  - Persistent cart in database
-  - Saved addresses
-  - Order history access
-  - Cart migration on login
+  **Logged:**
+  Persistent cart
+  Saved addresses
+  Order history
 end note
 
 note right of Admin
   **Admin:**
-  - Full order management
-  - Manual payment confirmation
-  - Refund processing
-  - Status updates
-  - Order fulfillment
+  Full access
+  Manual operations
+  Refund processing
 end note
 
-note bottom of UC_HandleWebhook
-  **Async Payment Processing:**
-  - Webhook signature verification
-  - Payment status updates
-  - Order status changes
-  - Email notifications
-end note
-
-note bottom of UC_MigrateCart
-  **Cart Migration:**
-  - Triggered on login/register
-  - Merges guest + logged carts
-  - Handles quantity conflicts
-  - Validates stock availability
-end note
-
-note bottom of Scheduler
-  **Automated Tasks:**
-  - Cleanup (daily)
-  - Cancel expired (hourly)
-  - Auto-complete (daily)
-  - Reminders (hourly)
-  - Status sync (hourly)
-end note
-
-note bottom of UC_OrderSnapshot
-  **Order Snapshot:**
-  Preserves product data:
-  - Name, SKU, price
-  - Discount, tax
-  - Description, image
-  - Custom attributes
+note bottom of System
+  **Automated:**
+  Hourly/Daily jobs
+  Cart cleanup
+  Status updates
 end note
 
 @enduml
