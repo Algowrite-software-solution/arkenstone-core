@@ -1,0 +1,195 @@
+@startuml Complete Stock Reservation Lifecycle Activity Diagram
+!theme plain
+
+start
+
+partition "Add to Cart" {
+    :Customer adds product to cart;
+    :Check stock availability;
+    
+    note right
+      **Availability Calculation:**
+      available = quantity_on_hand - 
+      SUM(reservations.quantity 
+          WHERE status IN 
+          ['pending','checking_out','committed'])
+    end note
+    
+    if (Stock available?) then (yes)
+        :Create StockReservation record\nstatus = 'pending';
+        :Increment stock.quantity_reserved;
+        :Set expires_at = now() + 10 minutes;
+        :Dispatch 'stock.reserved' event;
+        
+        if (Stock level < min_stock_level?) then (yes)
+            :Dispatch 'stock.low_stock' event;
+            :Send notification to admin;
+        endif
+        
+        :Save cart item with reservation_id;
+        :Return success to customer;
+    else (no)
+        :Return error: insufficient stock;
+        stop
+    endif
+}
+
+partition "Customer Actions" {
+    fork
+        -> Cart kept active;
+        :Customer continues shopping;
+        
+    fork again
+        -> Quantity updated;
+        if (Increased quantity?) then (yes)
+            :Check additional availability;
+            if (Available?) then (yes)
+                :Update reservation quantity;
+                :Increment quantity_reserved;
+            else (no)
+                :Show max available;
+            endif
+        else (decreased)
+            :Update reservation quantity;
+            :Decrement quantity_reserved;
+            :Dispatch 'stock.released' (partial);
+        endif
+        
+    fork again
+        -> Removed from cart;
+        :Get reservation from cart item;
+        :Update reservation status = 'released';
+        :Decrement stock.quantity_reserved;
+        :Dispatch 'stock.released' event;
+        :Delete cart item;
+        
+    fork again
+        -> Checkout initiated;
+        detach
+    end fork
+}
+
+partition "Checkout Process" {
+    :Customer proceeds to checkout;
+    :Update reservation status = 'checking_out';
+    :Extend expires_at = now() + 5 minutes;
+    
+    note right
+      Shorter timeout during checkout
+      to prevent long holds
+    end note
+    
+    :Fill shipping information;
+    :Select payment method;
+    :Validate payment information;
+}
+
+partition "Order Placement" {
+    fork
+        :Process each cart item;
+        repeat
+            :Get reservation by reservation_id;
+            
+            if (Reservation still valid?) then (yes)
+                if (Not expired?) then (yes)
+                    :START TRANSACTION;
+                    :Update reservation status = 'committed';
+                    :Update reference_type = 'order';
+                    :Update reference_id = order_id;
+                    :Remove expires_at (NULL);
+                    :COMMIT TRANSACTION;
+                    :Dispatch 'stock.committed' event;
+                    
+                    note right
+                      quantity_reserved stays unchanged
+                      until fulfillment
+                    end note
+                else (expired)
+                    :ROLLBACK all commits;
+                    :Return error: reservation expired;
+                    :Suggest re-adding to cart;
+                    stop
+                endif
+            else (invalid)
+                :ROLLBACK all commits;
+                :Return error: stock no longer available;
+                stop
+            endif
+            
+        repeat while (More cart items?) is (yes)
+        -> All items committed;
+        
+    fork again
+        :Create order record;
+        :Link reservations to order;
+        :Generate order confirmation;
+    end fork
+    
+    :Clear cart;
+    :Dispatch 'order.created' event;
+    :Send order confirmation email;
+}
+
+partition "Order Fulfillment" {
+    :Admin processes order;
+    :Prepare items for shipping;
+    :Mark order as shipped;
+    
+    repeat
+        :Get reservation by order_id;
+        :START TRANSACTION;
+        :Update reservation status = 'fulfilled';
+        :Decrement stock.quantity_reserved;
+        :Decrement stock.quantity_on_hand;
+        :COMMIT TRANSACTION;
+        :Dispatch 'stock.fulfilled' event;
+        
+        if (Stock level < min_stock_level?) then (yes)
+            :Dispatch 'stock.low_stock' event;
+            :Send reorder notification;
+        endif
+        
+    repeat while (More order items?) is (yes)
+    
+    :Dispatch 'order.fulfilled' event;
+    :Send shipping notification;
+}
+
+partition "Background Jobs" {
+    fork
+        -> Cron job (every 5 minutes);
+        :Find expired reservations\nexpires_at < now()\nstatus IN ['pending','checking_out'];
+        
+        repeat
+            :Get expired reservation;
+            :Update status = 'released';
+            :Decrement stock.quantity_reserved;
+            :Dispatch 'stock.released' event;
+        repeat while (More expired?) is (yes)
+        
+    fork again
+        -> Order cancelled;
+        :Get reservations by order_id\nstatus = 'committed';
+        
+        repeat
+            :Update reservation status = 'released';
+            :Decrement stock.quantity_reserved;
+            :Increment stock.quantity_on_hand;
+            :Dispatch 'stock.released' event;
+        repeat while (More reservations?) is (yes)
+        
+        :Refund payment;
+        :Send cancellation notification;
+    end fork
+}
+
+stop
+
+note bottom
+  **Reservation Status Flow:**
+  pending (10 min) -> checking_out (5 min) -> committed (no expiry) -> fulfilled
+  
+  Any status can transition to: released (cancellation/expiration)
+end note
+
+@enduml

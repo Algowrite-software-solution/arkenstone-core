@@ -9,6 +9,11 @@ use Arkenstone\Core\ECommerce\Product\Provider\ProductServiceProvider;
 use Arkenstone\Core\ECommerce\Product\Provider\ProductTaxonomyServiceProvider;
 use Arkenstone\Core\ECommerce\Product\Provider\TaxonomyServiceProvider;
 use Arkenstone\Core\ECommerce\Product\Provider\TaxonomyTypeServiceProvider;
+use Arkenstone\Core\ECommerce\Stock\Provider\StockServiceProvider;
+use Arkenstone\Core\ECommerce\Stock\Provider\StockReservationServiceProvider;
+use Arkenstone\Core\ECommerce\Stock\Provider\SupplierServiceProvider;
+use Arkenstone\Core\ECommerce\Stock\Provider\VariantServiceProvider;
+use Arkenstone\Core\ECommerce\Stock\Provider\VariationOptionServiceProvider;
 use Arkenstone\Core\Services\UtilityService;
 use Arkenstone\Core\Support\Event;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -20,6 +25,7 @@ class CoreServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__ . '/../config/arkenstone.php', 'arkenstone');
 
+        // Product Module Providers
         $this->app->register(ProductServiceProvider::class);
         $this->app->register(BrandServiceProvider::class);
         $this->app->register(CategoryServiceProvider::class);
@@ -27,6 +33,13 @@ class CoreServiceProvider extends ServiceProvider
         $this->app->register(ProductTaxonomyServiceProvider::class);
         $this->app->register(TaxonomyServiceProvider::class);
         $this->app->register(TaxonomyTypeServiceProvider::class);
+
+        // Stock Module Providers
+        $this->app->register(StockServiceProvider::class);
+        $this->app->register(StockReservationServiceProvider::class);
+        $this->app->register(SupplierServiceProvider::class);
+        $this->app->register(VariantServiceProvider::class);
+        $this->app->register(VariationOptionServiceProvider::class);
 
         $this->app->singleton('utility', function () {
             return new UtilityService();

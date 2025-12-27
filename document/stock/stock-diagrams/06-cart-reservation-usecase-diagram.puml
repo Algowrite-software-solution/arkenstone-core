@@ -1,0 +1,66 @@
+@startuml Cart Reservation Use Case Diagram
+!theme plain
+left to right direction
+
+actor "Customer" as customer
+actor "Cart System" as cart
+actor "Order System" as order
+actor "Cron Job" as cron
+
+rectangle "Stock Reservation System" {
+    usecase "Add to Cart" as UC1
+    usecase "Reserve Stock" as UC2
+    usecase "Check Stock Availability" as UC3
+    usecase "Update Cart Quantity" as UC4
+    usecase "Remove from Cart" as UC5
+    usecase "Release Reservation" as UC6
+    usecase "Place Order" as UC7
+    usecase "Commit Reservation" as UC8
+    usecase "Cancel Order" as UC9
+    usecase "Restore Reservation" as UC10
+    usecase "Ship Order" as UC11
+    usecase "Fulfill Reservation" as UC12
+    usecase "Clean Expired Reservations" as UC13
+    usecase "Auto-release Expired" as UC14
+    usecase "Notify Low Stock" as UC15
+}
+
+' Customer interactions
+customer --> UC1
+customer --> UC4
+customer --> UC5
+customer --> UC7
+customer --> UC9
+
+' Cart System interactions
+cart --> UC2
+cart --> UC3
+cart --> UC6
+
+' Order System interactions
+order --> UC8
+order --> UC10
+order --> UC11
+order --> UC12
+
+' Cron Job interactions
+cron --> UC13
+cron --> UC14
+
+' Include relationships
+UC1 ..> UC3 : <<include>>
+UC1 ..> UC2 : <<include>>
+UC4 ..> UC3 : <<include>>
+UC4 ..> UC2 : <<include>>
+UC4 ..> UC6 : <<include>>
+UC5 ..> UC6 : <<include>>
+UC7 ..> UC8 : <<include>>
+UC9 ..> UC10 : <<include>>
+UC11 ..> UC12 : <<include>>
+UC13 ..> UC14 : <<include>>
+
+' Extend relationships
+UC2 ..> UC15 : <<extend>>
+UC12 ..> UC15 : <<extend>>
+
+@enduml

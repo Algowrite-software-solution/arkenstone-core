@@ -1,0 +1,71 @@
+@startuml Stock Module Use Case Diagram
+!theme plain
+left to right direction
+
+actor "Admin User" as admin
+actor "Customer" as customer
+actor "System" as system
+actor "Supplier" as supplier
+
+rectangle "Stock Management System" {
+    usecase "Manage Suppliers" as UC1
+    usecase "Create Stock Item" as UC2
+    usecase "Update Stock Item" as UC3
+    usecase "Delete Stock Item" as UC4
+    usecase "View Stock Details" as UC5
+    usecase "Search Stock" as UC6
+    usecase "Manage Variants" as UC7
+    usecase "Manage Variation Options" as UC8
+    usecase "Assign Variants to Stock" as UC9
+    usecase "Adjust Stock Quantity" as UC10
+    usecase "Set Min Stock Level" as UC11
+    usecase "Reserve Stock" as UC12
+    usecase "Release Reservation" as UC13
+    usecase "Commit Reservation" as UC14
+    usecase "Fulfill Order" as UC15
+    usecase "Check Stock Availability" as UC16
+    usecase "Generate Low Stock Alert" as UC17
+    usecase "Track Stock Movement" as UC18
+    usecase "Bulk Import Stocks" as UC19
+    usecase "Generate Stock Report" as UC20
+}
+
+' Admin relationships
+admin --> UC1
+admin --> UC2
+admin --> UC3
+admin --> UC4
+admin --> UC5
+admin --> UC6
+admin --> UC7
+admin --> UC8
+admin --> UC9
+admin --> UC10
+admin --> UC11
+admin --> UC19
+admin --> UC20
+
+' Customer relationships
+customer --> UC16
+customer --> UC12
+
+' System relationships
+system --> UC12
+system --> UC13
+system --> UC14
+system --> UC15
+system --> UC17
+system --> UC18
+
+' Supplier relationships
+supplier --> UC5
+
+' Include relationships
+UC2 ..> UC7 : <<include>>
+UC2 ..> UC1 : <<include>>
+UC12 ..> UC16 : <<include>>
+UC14 ..> UC12 : <<extend>>
+UC15 ..> UC14 : <<extend>>
+UC17 ..> UC11 : <<include>>
+
+@enduml

@@ -1,0 +1,111 @@
+@startuml Stock Module Database Structure
+!theme plain
+hide circle
+skinparam linetype ortho
+
+' Entities
+
+entity "suppliers" as suppliers {
+  *id : bigint <<PK, generated>>
+  --
+  name : text
+  contact_person : text
+  email : text
+  phone : text
+  address : text
+  city : text
+  state : text
+  country : text
+  postal_code : text
+  supplier_code : text
+  status : text
+  notes : text
+  created_at : timestamp
+  updated_at : timestamp
+  deleted_at : timestamp
+}
+
+entity "variants" as variants {
+  *id : bigint <<PK, generated>>
+  --
+  name : text
+  created_at : timestamp
+  updated_at : timestamp
+}
+
+entity "variation_options" as variation_options {
+  *id : bigint <<PK, generated>>
+  --
+  *variant_id : bigint <<FK>>
+  name : text
+  meta : text
+  created_at : timestamp
+  updated_at : timestamp
+}
+
+entity "stocks" as stocks {
+  *id : bigint <<PK, generated>>
+  --
+  product_id : bigint
+  sku : text
+  barcode : text
+  price : numeric(10, 2)
+  cost : numeric(10, 2)
+  weight : numeric(8, 3)
+  quantity_on_hand : int
+  quantity_reserved : int
+  quantity_available : int <<generated>>
+  min_stock_level : int
+  *supplier_id : bigint <<FK>>
+  image_url_id : bigint
+  status : text
+  created_at : timestamp
+  updated_at : timestamp
+  deleted_at : timestamp
+}
+
+entity "stock_variant_options" as stock_variant_options {
+  *id : bigint <<PK, generated>>
+  --
+  *variant_option_id : bigint <<FK>>
+  *stock_id : bigint <<FK>>
+}
+
+entity "stock_reservations" as stock_reservations {
+  *id : bigint <<PK, generated>>
+  --
+  *stock_id : bigint <<FK>>
+  quantity : int
+  status : text
+  reference_type : text
+  reference_id : bigint
+  expires_at : timestamp
+  notes : text
+  created_at : timestamp
+  updated_at : timestamp
+}
+
+' Relationships
+
+variants ||..o{ variation_options : "defines options for"
+suppliers ||..o{ stocks : "supplies"
+variation_options ||..o{ stock_variant_options : "part of config"
+stocks ||..o{ stock_variant_options : "configured by"
+stocks ||..o{ stock_reservations : "reserves"
+
+note right of stock_reservations
+  **Status Values:**
+  - pending (10 min expiry)
+  - checking_out (5 min expiry)
+  - committed (no expiry)
+  - fulfilled (final state)
+  - released (cancelled/expired)
+end note
+
+note right of stocks
+  **Generated Field:**
+  quantity_available = 
+  quantity_on_hand - quantity_reserved
+end note
+
+@enduml

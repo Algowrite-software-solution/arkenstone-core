@@ -1,0 +1,228 @@
+@startuml Stock Module Class Diagram
+!theme plain
+
+package "Stock Module Models" {
+    
+    class Supplier {
+        +id: bigint
+        +name: string
+        +contact_person: string
+        +email: string
+        +phone: string
+        +address: string
+        +city: string
+        +state: string
+        +country: string
+        +postal_code: string
+        +supplier_code: string
+        +status: string
+        +notes: text
+        +created_at: timestamp
+        +updated_at: timestamp
+        +deleted_at: timestamp
+        --
+        +stocks(): HasMany
+        +isActive(): bool
+        +scopeActive(): Builder
+        +scopeByStatus(): Builder
+        +scopeSearch(): Builder
+    }
+    
+    class Variant {
+        +id: bigint
+        +name: string
+        +created_at: timestamp
+        +updated_at: timestamp
+        --
+        +variationOptions(): HasMany
+        +scopeSearch(): Builder
+    }
+    
+    class VariationOption {
+        +id: bigint
+        +variant_id: bigint
+        +name: string
+        +meta: text
+        +created_at: timestamp
+        +updated_at: timestamp
+        --
+        +variant(): BelongsTo
+        +stocks(): BelongsToMany
+        +scopeByVariant(): Builder
+    }
+    
+    class Stock {
+        +id: bigint
+        +product_id: bigint
+        +sku: string
+        +barcode: string
+        +price: decimal
+        +cost: decimal
+        +weight: decimal
+        +quantity_on_hand: int
+        +quantity_reserved: int
+        +quantity_available: int {computed}
+        +min_stock_level: int
+        +supplier_id: bigint
+        +image_url_id: bigint
+        +status: string
+        +created_at: timestamp
+        +updated_at: timestamp
+        +deleted_at: timestamp
+        --
+        +product(): BelongsTo
+        +supplier(): BelongsTo
+        +variationOptions(): BelongsToMany
+        +reservations(): HasMany
+        --
+        +isAvailable(): bool
+        +isLowStock(): bool
+        +getAvailableQuantity(): int
+        +getReservedQuantity(): int
+        +canReserve(quantity: int): bool
+        +reserve(quantity: int, reference: array): StockReservation
+        +adjustQuantity(quantity: int, reason: string): bool
+        --
+        +scopeActive(): Builder
+        +scopeBySku(): Builder
+        +scopeByProduct(): Builder
+        +scopeBySupplier(): Builder
+        +scopeLowStock(): Builder
+        +scopeOutOfStock(): Builder
+        +scopeInStock(): Builder
+        +scopeSearch(): Builder
+    }
+    
+    class StockVariantOption {
+        +id: bigint
+        +variant_option_id: bigint
+        +stock_id: bigint
+        --
+        +stock(): BelongsTo
+        +variationOption(): BelongsTo
+    }
+    
+
+    class StockReservation {
+        +id: bigint
+        +stock_id: bigint
+        +quantity: int
+        +status: string {pending|checking_out|committed|fulfilled|released}
+        +reference_type: string
+        +reference_id: bigint
+        +expires_at: timestamp
+        +notes: text
+        +created_at: timestamp
+        +updated_at: timestamp
+        --
+        +stock(): BelongsTo
+        +isExpired(): bool
+        +isPending(): bool
+        +isCommitted(): bool
+        +updateStatus(status: string): bool
+        +extend(minutes: int): bool
+        +commit(): bool
+        +fulfill(): bool
+        +release(): bool
+        --
+        +scopeActive(): Builder
+        +scopePending(): Builder
+        +scopeCommitted(): Builder
+        +scopeExpired(): Builder
+        +scopeByStatus(): Builder
+        +scopeByReference(): Builder
+    }
+}
+
+package "Stock Module Services" {
+    
+    interface Service {
+        +getName(): string
+    }
+    
+    class StockService {
+        +createStock(data: array): Stock
+        +updateStock(id: int, data: array): Stock
+        +deleteStock(id: int): bool
+        +getStock(id: int): Stock
+        +getStocks(filters: array): Collection
+        +searchStocks(query: string): Collection
+        +checkAvailability(stockId: int, qty: int): array
+        +adjustQuantity(stockId: int, qty: int, reason: string): bool
+        +getLowStockItems(): Collection
+        +getOutOfStockItems(): Collection
+    }
+    
+    class StockReservationService {
+        +reserve(stockId: int, qty: int, ref: array): StockReservation
+        +updateStatus(reservationId: int, status: string): bool
+        +extendExpiry(reservationId: int, minutes: int): bool
+        +release(reservationId: int): bool
+        +releaseExpired(): int
+        +commit(reservationId: int): bool
+        +fulfill(reservationId: int): bool
+        +getReservation(id: int): StockReservation
+        +getActiveReservations(stockId: int): Collection
+        +getReservationsByReference(type: string, id: int): Collection
+    }
+    
+    class SupplierService {
+        +createSupplier(data: array): Supplier
+        +updateSupplier(id: int, data: array): Supplier
+        +deleteSupplier(id: int): bool
+        +getSupplier(id: int): Supplier
+        +getSuppliers(filters: array): Collection
+        +searchSuppliers(query: string): Collection
+    }
+    
+    class VariantService {
+        +createVariant(data: array): Variant
+        +updateVariant(id: int, data: array): Variant
+        +deleteVariant(id: int): bool
+        +getVariant(id: int): Variant
+        +getVariants(): Collection
+    }
+    
+    class VariationOptionService {
+        +createOption(data: array): VariationOption
+        +updateOption(id: int, data: array): VariationOption
+        +deleteOption(id: int): bool
+        +getOption(id: int): VariationOption
+        +getOptionsByVariant(variantId: int): Collection
+    }
+    
+    Service <|.. StockService
+    Service <|.. StockReservationService
+    Service <|.. SupplierService
+    Service <|.. VariantService
+    Service <|.. VariationOptionService
+}
+
+' Relationships
+Stock "1" --> "0..*" StockVariantOption
+VariationOption "1" --> "0..*" StockVariantOption
+Variant "1" --> "0..*" VariationOption
+Supplier "1" --> "0..*" Stock
+Stock "1" --> "0..*" StockReservation
+
+' Service dependencies
+StockService --> Stock
+StockReservationService --> Stock
+StockReservationService --> StockReservation
+SupplierService --> Supplier
+VariantService --> Variant
+VariationOptionService --> VariationOption
+
+note right of StockReservation
+  **Reservation Status Lifecycle:**
+  pending → checking_out → committed → fulfilled
+  
+  Any status can transition to: released
+  
+  **Expiry Times:**
+  - pending: 10 minutes
+  - checking_out: 5 minutes
+  - committed: no expiry
+end note
+
+@enduml
