@@ -1,0 +1,349 @@
+@startuml Order Placement with Stock Locking
+!theme plain
+title Order Placement with Stock Locking\n(Transaction-Safe Order Creation with Row-Level Locks)
+
+' Participants
+actor Customer as customer #LightBlue
+participant "OrderController" as controller #E3F2FD
+participant "OrderService" as orderService #E3F2FD
+participant "CartService" as cartService #E3F2FD
+participant "ProductService" as productService #E3F2FD
+participant "StockService" as stockService #E3F2FD
+participant "PaymentService" as paymentService #E3F2FD
+database "Database\n(Transactional)" as db #E8F5E9
+participant "EventSystem" as eventSystem #FCE4EC
+
+' Main Flow
+customer -> controller: POST /api/v1/orders\n{checkout_token: "chk_xyz123"}
+activate controller
+
+controller -> orderService: createOrder(checkoutSession)
+activate orderService
+
+' Checkout Session Validation
+orderService -> db: SELECT * FROM checkout_sessions\nWHERE token = 'chk_xyz123'\nAND expires_at > NOW()
+activate db
+db --> orderService: CheckoutSession\n{cart_id: 5, user_id: 42, expires_at: "2025-01-01 10:30:00"}
+deactivate db
+
+alt Checkout Session Valid
+    ' Load Cart
+    orderService -> cartService: getCart(5)
+    activate cartService
+    
+    cartService -> db: SELECT * FROM carts WHERE id = 5
+    activate db
+    db --> cartService: Cart {id: 5, user_id: 42, status: 'active'}
+    deactivate db
+    
+    cartService -> db: SELECT * FROM cart_items WHERE cart_id = 5
+    activate db
+    db --> cartService: CartItems [3 items]
+    deactivate db
+    
+    cartService --> orderService: Cart with items:\n[{product_id: 10, quantity: 2},\n {product_id: 15, quantity: 1},\n {product_id: 20, quantity: 5}]
+    deactivate cartService
+    
+    ' ===== BEGIN TRANSACTION =====
+    orderService -> db: BEGIN TRANSACTION
+    activate db #FFCCCC
+    note over db
+        **🔒 TRANSACTION STARTS**
+        All operations below are atomic
+        Rollback on any error
+    end note
+    
+    ' ===== PRE-ORDER VALIDATION =====
+    group Pre-Order Validation (Inside Transaction)
+        orderService -> cartService: validateCart(cart)
+        activate cartService
+        
+        loop For each cart item
+            cartService -> productService: getProduct(product_id)
+            activate productService
+            productService -> db: SELECT * FROM products WHERE id = ?
+            db --> productService: Product {id, name, price, is_active, stock_quantity}
+            productService --> cartService: Product
+            deactivate productService
+            
+            alt Product inactive or deleted
+                cartService -> cartService: Add validation error:\n"Product {name} is no longer available"
+            else Product price changed
+                cartService -> cartService: Add validation warning:\n"Price updated from $X to $Y"
+            end
+            
+            cartService -> stockService: checkStock(product_id, quantity)
+            activate stockService
+            stockService -> db: SELECT stock_quantity FROM products WHERE id = ?
+            db --> stockService: stock_quantity
+            
+            alt Stock insufficient
+                stockService --> cartService: {available: false, current_stock: X}
+                cartService -> cartService: Add validation error:\n"Only X items available for {product}"
+            else Stock sufficient
+                stockService --> cartService: {available: true}
+            end
+            deactivate stockService
+        end
+        
+        alt Validation has errors
+            cartService --> orderService: ValidationResult {valid: false, errors: [...]}
+            deactivate cartService
+            
+            orderService -> db: ROLLBACK
+            note over db
+                **🔓 TRANSACTION ROLLED BACK**
+                No changes committed
+            end note
+            deactivate db
+            
+            orderService --> controller: Validation errors
+            deactivate orderService
+            
+            controller --> customer: ResponseProtocol::error(\n  errors,\n  'Cart validation failed',\n  422\n)
+            deactivate controller
+        else Validation successful
+            cartService --> orderService: ValidationResult {valid: true}
+            deactivate cartService
+        end
+    end
+    
+    ' ===== STOCK LOCKING & DEDUCTION =====
+    group Stock Locking & Deduction (Critical Section)
+        note over orderService, stockService
+            **🔒 ROW-LEVEL LOCKS ACQUIRED**
+            Sequential locking prevents deadlocks
+            Locks held until transaction commits
+        end note
+        
+        loop For each cart item (in ascending product_id order)
+            orderService -> db: SELECT * FROM products\nWHERE id = ?\nFOR UPDATE
+            note right of db
+                **FOR UPDATE:**
+                - Acquires exclusive row lock
+                - Blocks other transactions
+                - Prevents concurrent stock deduction
+                - Released on COMMIT/ROLLBACK
+            end note
+            db --> orderService: Product (🔒 LOCKED)
+            
+            orderService -> stockService: deductStock(\n  product_id,\n  quantity,\n  reference_type: 'order',\n  reference_id: null // Not created yet\n)
+            activate stockService
+            
+            stockService -> db: UPDATE products\nSET stock_quantity = stock_quantity - ?\nWHERE id = ?
+            db --> stockService: Rows affected: 1
+            
+            stockService -> db: INSERT INTO stock_movements\n(product_id, type: 'deduction', quantity: -X,\nreference_type: 'order', notes: 'Order placement')
+            db --> stockService: stock_movement.id created
+            
+            stockService --> orderService: Success {new_stock: Y}
+            deactivate stockService
+            
+            note over db
+                Product {id} stock locked and deducted
+                Lock still held until transaction ends
+            end note
+        end
+    end
+    
+    ' ===== ORDER CREATION =====
+    group Order & Related Records Creation
+        orderService -> orderService: generateOrderNumber()
+        note right of orderService
+            **Order Number Format:**
+            ORD-{YYYYMMDD}-{SEQUENCE}
+            Example: ORD-20250101-00001
+            
+            Configurable via:
+            config('arkenstone.order_number_prefix')
+        end note
+        orderService --> orderService: order_number = "ORD-20250101-00001"
+        
+        orderService -> db: INSERT INTO orders\n(\n  order_number,\n  user_id,\n  cart_id,\n  status: 'pending_payment',\n  payment_status: 'pending',\n  payment_method,\n  subtotal,\n  tax_amount,\n  shipping_cost,\n  discount_amount,\n  grand_total,\n  currency: 'USD'\n)
+        db --> orderService: order.id = 123
+        
+        ' Create Order Items
+        loop For each cart item
+            orderService -> db: SELECT * FROM products WHERE id = ?
+            db --> orderService: Product (full details)
+            
+            orderService -> orderService: Create product snapshot:\n{\n  "id": 10,\n  "name": "Product Name",\n  "sku": "SKU-123",\n  "price": 29.99,\n  "image": "...",\n  "attributes": {...}\n}
+            
+            orderService -> db: INSERT INTO order_items\n(\n  order_id: 123,\n  product_id,\n  product_sku,\n  product_name,\n  quantity,\n  unit_price,\n  discount_type,\n  discount_value,\n  discount_amount,\n  tax_rate,\n  tax_amount,\n  subtotal,\n  total_price,\n  product_snapshot: JSON\n)
+            db --> orderService: order_item.id created
+            
+            note right of db
+                **Product Snapshot:**
+                Preserves product data at order time
+                Order history remains accurate even if:
+                - Product deleted
+                - Price changed
+                - Attributes modified
+            end note
+        end
+        
+        ' Create Shipping Address
+        orderService -> db: INSERT INTO order_shipping_addresses\n(\n  order_id: 123,\n  full_name,\n  phone,\n  email,\n  address_line_1,\n  address_line_2,\n  city,\n  state,\n  postal_code,\n  country,\n  latitude,\n  longitude\n)
+        db --> orderService: shipping_address.id created
+        
+        ' Create Billing Address
+        orderService -> db: INSERT INTO order_billing_addresses\n(\n  order_id: 123,\n  full_name,\n  phone,\n  email,\n  address_line_1,\n  city,\n  state,\n  postal_code,\n  country\n)
+        db --> orderService: billing_address.id created
+        
+        ' Update Cart Status
+        orderService -> db: UPDATE carts\nSET status = 'completed',\norder_id = 123,\ncompleted_at = NOW()\nWHERE id = 5
+        db --> orderService: Cart updated
+        
+        ' Create Initial Status History
+        orderService -> db: INSERT INTO order_status_history\n(\n  order_id: 123,\n  from_status: NULL,\n  to_status: 'pending_payment',\n  changed_by_type: 'customer',\n  changed_by: 42,\n  note: 'Order created'\n)
+        db --> orderService: status_history created
+        
+        ' Update stock_movements with order_id
+        orderService -> db: UPDATE stock_movements\nSET reference_id = 123\nWHERE reference_type = 'order'\nAND created_at > ? // Last 5 seconds
+        db --> orderService: Stock movements linked
+    end
+    
+    ' ===== COMMIT TRANSACTION =====
+    orderService -> db: COMMIT
+    note over db
+        **✅ TRANSACTION COMMITTED**
+        All changes persisted atomically:
+        - Stock deducted and locked
+        - Order and items created
+        - Addresses saved
+        - Cart marked completed
+        - Status history recorded
+        
+        **🔓 ALL LOCKS RELEASED**
+    end note
+    deactivate db
+    
+    ' ===== POST-TRANSACTION OPERATIONS =====
+    group Post-Transaction (After Commit)
+        ' Dispatch Events
+        orderService -> eventSystem: dispatch('order.created', order)
+        activate eventSystem
+        note over eventSystem
+            **Event Listeners:**
+            - Send order confirmation notification
+            - Update admin dashboard
+            - Trigger analytics tracking
+            - Log to audit trail
+        end note
+        eventSystem ->> eventSystem: Async event processing
+        deactivate eventSystem
+        
+        ' Payment Method Branching
+        alt Payment Method = COD
+            orderService -> db: UPDATE orders\nSET status = 'confirmed',\npayment_status = 'cod_pending',\nconfirmed_at = NOW()
+            
+            orderService -> db: INSERT INTO order_status_history\n(from_status: 'pending_payment', to_status: 'confirmed')
+            
+            orderService -> db: INSERT INTO payments\n(\n  order_id: 123,\n  payment_method: 'cod',\n  status: 'cod_pending',\n  amount: grand_total,\n  currency: 'USD'\n)
+            
+            orderService -> eventSystem: dispatch('order.confirmed', order)
+            
+            orderService --> controller: Order\n{status: 'confirmed', payment_method: 'cod'}
+            deactivate orderService
+            
+            controller --> customer: ResponseProtocol::success(\n  order,\n  'Order confirmed! Pay on delivery'\n)
+            deactivate controller
+            
+        else Payment Method = BANK_TRANSFER
+            orderService -> db: INSERT INTO payments\n(\n  order_id: 123,\n  payment_method: 'bank_transfer',\n  status: 'awaiting_payment',\n  amount: grand_total\n)
+            
+            orderService --> controller: Order\n{status: 'pending_payment', bank_details: {...}}
+            deactivate orderService
+            
+            controller --> customer: ResponseProtocol::success(\n  {order, bank_details},\n  'Transfer to bank account within 48h'\n)
+            deactivate controller
+            
+        else Payment Method = CARD
+            orderService -> paymentService: initiatePayment(order)
+            activate paymentService
+            note over paymentService
+                **See Payment Processing Diagram**
+                - Creates payment record
+                - Calls payment gateway adapter
+                - Returns redirect URL
+            end note
+            paymentService --> orderService: Payment {redirect_url: "..."}
+            deactivate paymentService
+            
+            orderService --> controller: Order {redirect_url: "..."}
+            deactivate orderService
+            
+            controller --> customer: ResponseProtocol::success(\n  {order, redirect_url},\n  'Complete payment to confirm order'\n)
+            deactivate controller
+        end
+    end
+    
+else Checkout Session Invalid/Expired
+    orderService --> controller: CheckoutSessionExpired error
+    deactivate orderService
+    
+    controller --> customer: ResponseProtocol::error(\n  null,\n  'Checkout session expired. Please restart checkout.',\n  422\n)
+    deactivate controller
+end
+
+' Notes
+note over db
+    **Transaction Isolation Level:**
+    READ COMMITTED (Laravel default)
+    
+    **Deadlock Prevention:**
+    - Lock products in ascending ID order
+    - Keep transaction duration minimal
+    - Use row-level locks (not table locks)
+    
+    **Rollback Scenarios:**
+    - Validation failure
+    - Insufficient stock
+    - Constraint violation
+    - Database error
+    All operations reversed automatically
+end note
+
+note over orderService, stockService
+    **Why Row-Level Locks?**
+    
+    Without locks (Race Condition):
+    ┌─────────────────────────────────────┐
+    │ Transaction A reads stock: 5 items  │
+    │ Transaction B reads stock: 5 items  │ ← Both see 5
+    │ Transaction A deducts 3 → stock: 2  │
+    │ Transaction B deducts 3 → stock: 2  │ ← WRONG! Should be -1
+    └─────────────────────────────────────┘
+    
+    With FOR UPDATE locks:
+    ┌─────────────────────────────────────┐
+    │ Transaction A locks & reads: 5      │
+    │ Transaction B waits... (blocked)    │ ← Lock prevents read
+    │ Transaction A deducts 3 → stock: 2  │
+    │ Transaction A commits (lock released)│
+    │ Transaction B locks & reads: 2      │ ← Now sees correct value
+    │ Transaction B deducts 3 → FAILS     │ ← Validation catches error
+    └─────────────────────────────────────┘
+end note
+
+note over customer, controller
+    **Order Flow Summary:**
+    
+    1️⃣ Validate checkout session (not expired)
+    2️⃣ Load cart and items
+    3️⃣ 🔒 BEGIN TRANSACTION
+    4️⃣ Re-validate all items (stock/price/availability)
+    5️⃣ Lock products sequentially (FOR UPDATE)
+    6️⃣ Deduct stock with stock_movements logging
+    7️⃣ Create order with generated order_number
+    8️⃣ Create order_items with product snapshots
+    9️⃣ Copy shipping & billing addresses
+    🔟 Mark cart as completed
+    1️⃣1️⃣ ✅ COMMIT (all or nothing)
+    1️⃣2️⃣ Dispatch events
+    1️⃣3️⃣ Branch by payment method
+    
+    **Duration:** ~500ms for 10 items
+end note
+
+@enduml

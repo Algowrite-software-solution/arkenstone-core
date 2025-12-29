@@ -1,0 +1,982 @@
+@startuml Order Module - Complete Class Diagram
+!theme plain
+skinparam linetype ortho
+skinparam nodesep 60
+skinparam ranksep 80
+skinparam packageStyle rectangle
+
+title Order Module - Complete Class Diagram\n(Arkenstone Core E-Commerce Package)
+
+' Color definitions
+skinparam class {
+    BackgroundColor<<Enum>> #FFF9C4
+    BorderColor<<Enum>> #F57F17
+    BackgroundColor<<Model>> #E8F5E9
+    BorderColor<<Model>> #4CAF50
+    BackgroundColor<<Service>> #E3F2FD
+    BorderColor<<Service>> #1976D2
+    BackgroundColor<<Controller>> #F3E5F5
+    BorderColor<<Controller>> #7B1FA2
+    BackgroundColor<<Request>> #FFE0B2
+    BorderColor<<Request>> #EF6C00
+    BackgroundColor<<Resource>> #E1F5FE
+    BorderColor<<Resource>> #0288D1
+    BackgroundColor<<Event>> #FCE4EC
+    BorderColor<<Event>> #C2185B
+    BackgroundColor<<Provider>> #E8EAF6
+    BorderColor<<Provider>> #3F51B5
+    BackgroundColor<<Contract>> #FFF3E0
+    BorderColor<<Contract>> #FF6F00
+    BackgroundColor<<ValueObject>> #F1F8E9
+    BorderColor<<ValueObject>> #689F38
+}
+
+' ==================== ENUM PACKAGE ====================
+package "Enums" <<Rectangle>> #FFFEF0 {
+    
+    enum OrderStatus <<Enum>> {
+        PENDING_PAYMENT
+        CONFIRMED
+        PROCESSING
+        SHIPPED
+        DELIVERED
+        COMPLETED
+        CANCELLED
+        RETURNED
+        --
+        +label(): string
+        +canTransitionTo(OrderStatus): bool
+        +isCancellable(): bool
+    }
+    
+    enum PaymentStatus <<Enum>> {
+        PENDING
+        COD_PENDING
+        AWAITING_PAYMENT
+        PAYMENT_INITIATED
+        PAID
+        FAILED
+        REFUNDING
+        REFUNDED
+        CANCELLED
+        --
+        +label(): string
+        +isSuccessful(): bool
+        +isFailed(): bool
+        +isPending(): bool
+    }
+    
+    enum PaymentMethod <<Enum>> {
+        CARD
+        COD
+        BANK_TRANSFER
+        --
+        +label(): string
+        +requiresGateway(): bool
+        +requiresManualConfirmation(): bool
+        +isPayOnDelivery(): bool
+    }
+    
+    enum CartStatus <<Enum>> {
+        ACTIVE
+        COMPLETED
+        MIGRATED
+        EXPIRED
+        --
+        +label(): string
+        +isActive(): bool
+        +isCompleted(): bool
+    }
+    
+    enum DiscountType <<Enum>> {
+        PERCENTAGE
+        FIXED
+        NONE
+        --
+        +label(): string
+        +calculate(float, float): float
+    }
+}
+
+' ==================== MODEL PACKAGE ====================
+package "Models" <<Rectangle>> #F0FFF0 {
+    
+    class Cart <<Model>> {
+        ' Primary Key
+        +id: bigint
+        
+        ' Foreign Keys
+        +user_id: bigint|null
+        +order_id: bigint|null
+        +migrated_to_cart_id: bigint|null
+        
+        ' Attributes
+        +cart_token: string|null
+        +session_id: string|null
+        +status: CartStatus
+        +coupon_code: string|null
+        +discount_amount: decimal
+        +expires_at: datetime|null
+        +completed_at: datetime|null
+        +migrated_at: datetime|null
+        +created_at: datetime
+        +updated_at: datetime
+        
+        ' Configuration
+        #fillable: array
+        #casts: array
+        
+        ' Relationships
+        +user(): BelongsTo
+        +items(): HasMany
+        +order(): BelongsTo
+        +migratedToCart(): BelongsTo
+        
+        ' Scopes
+        +scopeActive(Builder): Builder
+        +scopeForUser(Builder, int): Builder
+        +scopeForGuest(Builder, string): Builder
+        +scopeExpired(Builder): Builder
+        
+        ' Methods
+        +isActive(): bool
+        +isExpired(): bool
+        +calculateTotals(): array
+        +hasItems(): bool
+        +getItemCount(): int
+    }
+    
+    class CartItem <<Model>> {
+        ' Primary Key
+        +id: bigint
+        
+        ' Foreign Keys
+        +cart_id: bigint
+        +product_id: bigint
+        
+        ' Attributes
+        +product_sku: string
+        +product_name: string
+        +quantity: int
+        +unit_price: decimal
+        +discount_type: DiscountType
+        +discount_value: decimal
+        +discount_amount: decimal
+        +tax_rate: decimal
+        +tax_amount: decimal
+        +total_price: decimal
+        +product_snapshot: json
+        +created_at: datetime
+        +updated_at: datetime
+        
+        ' Configuration
+        #fillable: array
+        #casts: array
+        
+        ' Relationships
+        +cart(): BelongsTo
+        +product(): BelongsTo
+        
+        ' Methods
+        +calculateTotal(): decimal
+        +updateQuantity(int): void
+        +getSnapshot(): array
+    }
+    
+    class Order <<Model>> {
+        ' Primary Key
+        +id: bigint
+        
+        ' Foreign Keys
+        +user_id: bigint|null
+        +cart_id: bigint|null
+        +cancelled_by: bigint|null
+        
+        ' Attributes
+        +order_number: string
+        +guest_email: string|null
+        +status: OrderStatus
+        +payment_status: PaymentStatus
+        +payment_method: PaymentMethod
+        +subtotal: decimal
+        +tax_amount: decimal
+        +shipping_cost: decimal
+        +discount_amount: decimal
+        +grand_total: decimal
+        +currency: string
+        +notes: text|null
+        +admin_notes: text|null
+        +tracking_number: string|null
+        +carrier: string|null
+        +confirmed_at: datetime|null
+        +processing_at: datetime|null
+        +shipped_at: datetime|null
+        +delivered_at: datetime|null
+        +completed_at: datetime|null
+        +cancelled_at: datetime|null
+        +cancelled_by_type: string|null
+        +cancellation_reason: string|null
+        +cancellation_note: text|null
+        +created_at: datetime
+        +updated_at: datetime
+        
+        ' Configuration
+        #fillable: array
+        #casts: array
+        #appends: array
+        
+        ' Relationships
+        +user(): BelongsTo
+        +cart(): BelongsTo
+        +items(): HasMany
+        +shippingAddress(): HasOne
+        +billingAddress(): HasOne
+        +payments(): HasMany
+        +statusHistory(): HasMany
+        +cancelledBy(): BelongsTo
+        
+        ' Scopes
+        +scopeByStatus(Builder, OrderStatus): Builder
+        +scopeByPaymentStatus(Builder, PaymentStatus): Builder
+        +scopeForUser(Builder, int): Builder
+        +scopePendingPayment(Builder): Builder
+        +scopeCancellable(Builder): Builder
+        
+        ' Methods
+        +generateOrderNumber(): string
+        +canBeCancelled(): bool
+        +isCancelled(): bool
+        +isPaid(): bool
+        +updateStatus(OrderStatus, string): void
+        +cancel(int, string, string): void
+    }
+    
+    class OrderItem <<Model>> {
+        ' Primary Key
+        +id: bigint
+        
+        ' Foreign Keys
+        +order_id: bigint
+        +product_id: bigint
+        
+        ' Attributes
+        +product_sku: string
+        +product_name: string
+        +quantity: int
+        +unit_price: decimal
+        +discount_type: DiscountType
+        +discount_value: decimal
+        +discount_amount: decimal
+        +tax_rate: decimal
+        +tax_amount: decimal
+        +subtotal: decimal
+        +total_price: decimal
+        +product_snapshot: json
+        +created_at: datetime
+        +updated_at: datetime
+        
+        ' Configuration
+        #fillable: array
+        #casts: array
+        
+        ' Relationships
+        +order(): BelongsTo
+        +product(): BelongsTo
+        
+        ' Methods
+        +getSnapshot(): array
+        +calculateSubtotal(): decimal
+        +calculateTotal(): decimal
+    }
+    
+    class OrderShippingAddress <<Model>> {
+        ' Primary Key
+        +id: bigint
+        
+        ' Foreign Keys
+        +order_id: bigint
+        
+        ' Attributes
+        +full_name: string
+        +phone: string
+        +email: string|null
+        +address_line_1: string
+        +address_line_2: string|null
+        +city: string
+        +state: string
+        +postal_code: string
+        +country: string
+        +latitude: decimal|null
+        +longitude: decimal|null
+        +created_at: datetime
+        +updated_at: datetime
+        
+        ' Configuration
+        #fillable: array
+        
+        ' Relationships
+        +order(): BelongsTo
+        
+        ' Methods
+        +getFullAddress(): string
+    }
+    
+    class OrderBillingAddress <<Model>> {
+        ' Primary Key
+        +id: bigint
+        
+        ' Foreign Keys
+        +order_id: bigint
+        
+        ' Attributes
+        +full_name: string
+        +phone: string
+        +email: string|null
+        +address_line_1: string
+        +address_line_2: string|null
+        +city: string
+        +state: string
+        +postal_code: string
+        +country: string
+        +created_at: datetime
+        +updated_at: datetime
+        
+        ' Configuration
+        #fillable: array
+        
+        ' Relationships
+        +order(): BelongsTo
+        
+        ' Methods
+        +getFullAddress(): string
+    }
+    
+    class Payment <<Model>> {
+        ' Primary Key
+        +id: bigint
+        
+        ' Foreign Keys
+        +order_id: bigint
+        
+        ' Attributes
+        +payment_method: PaymentMethod
+        +gateway: string|null
+        +gateway_payment_id: string|null
+        +transaction_id: string|null
+        +status: PaymentStatus
+        +amount: decimal
+        +currency: string
+        +redirect_url: text|null
+        +gateway_response: json|null
+        +failed_reason: text|null
+        +paid_at: datetime|null
+        +failed_at: datetime|null
+        +refunded_at: datetime|null
+        +created_at: datetime
+        +updated_at: datetime
+        
+        ' Configuration
+        #fillable: array
+        #casts: array
+        
+        ' Relationships
+        +order(): BelongsTo
+        +refunds(): HasMany
+        
+        ' Scopes
+        +scopeByStatus(Builder, PaymentStatus): Builder
+        +scopeSuccessful(Builder): Builder
+        +scopeFailed(Builder): Builder
+        
+        ' Methods
+        +isSuccessful(): bool
+        +isFailed(): bool
+        +canBeRefunded(): bool
+    }
+    
+    class PaymentRefund <<Model>> {
+        ' Primary Key
+        +id: bigint
+        
+        ' Foreign Keys
+        +payment_id: bigint
+        +processed_by: bigint|null
+        
+        ' Attributes
+        +refund_amount: decimal
+        +refund_method: string
+        +gateway_refund_id: string|null
+        +status: string
+        +reason: text|null
+        +admin_note: text|null
+        +initiated_at: datetime
+        +completed_at: datetime|null
+        +estimated_completion: date|null
+        +created_at: datetime
+        +updated_at: datetime
+        
+        ' Configuration
+        #fillable: array
+        #casts: array
+        
+        ' Relationships
+        +payment(): BelongsTo
+        +processedBy(): BelongsTo
+        
+        ' Methods
+        +isCompleted(): bool
+        +isPending(): bool
+    }
+    
+    class OrderStatusHistory <<Model>> {
+        ' Primary Key
+        +id: bigint
+        
+        ' Foreign Keys
+        +order_id: bigint
+        +changed_by: bigint|null
+        
+        ' Attributes
+        +from_status: string|null
+        +to_status: string
+        +changed_by_type: string
+        +note: text|null
+        +created_at: datetime
+        
+        ' Configuration
+        #fillable: array
+        
+        ' Relationships
+        +order(): BelongsTo
+        +user(): BelongsTo
+        
+        ' Methods
+        +getStatusLabel(): string
+    }
+}
+
+' ==================== CONTRACT/INTERFACE PACKAGE ====================
+package "Contracts" <<Rectangle>> #FFF8E1 {
+    
+    interface CartServiceInterface <<Contract>> {
+        +getCart(int|null, string|null): Cart|null
+        +addToCart(array): CartItem
+        +updateCartItem(int, int): CartItem
+        +removeFromCart(int): bool
+        +clearCart(int|null, string|null): bool
+        +validateCart(Cart): array
+        +migrateGuestCart(string, int): Cart
+        +calculateTotals(Cart): array
+    }
+    
+    interface CheckoutServiceInterface <<Contract>> {
+        +initiateCheckout(Cart): CheckoutSession
+        +validateCheckout(CheckoutSession): array
+        +calculateShipping(array, Cart): array
+        +calculateTotals(Cart, array): array
+        +createCheckoutSession(Cart, array): CheckoutSession
+    }
+    
+    interface OrderServiceInterface <<Contract>> {
+        +createOrder(CheckoutSession): Order
+        +getOrder(string): Order|null
+        +getOrderHistory(int, array): Collection
+        +updateOrderStatus(int, OrderStatus, string): Order
+        +cancelOrder(int, int, string, string): Order
+        +createOrderFromCart(Cart, array): Order
+    }
+    
+    interface PaymentServiceInterface <<Contract>> {
+        +initiatePayment(Order): Payment
+        +processWebhook(string, Request): WebhookResponse
+        +refundPayment(int, decimal, string): PaymentRefund
+        +getPaymentStatus(int): PaymentStatus
+        +handlePaymentSuccess(Payment): void
+        +handlePaymentFailure(Payment, string): void
+    }
+    
+    interface PaymentAdapterInterface <<Contract>> {
+        +createPayment(array): PaymentResponse
+        +capturePayment(string): PaymentResponse
+        +refundPayment(string, float): PaymentResponse
+        +getPaymentStatus(string): PaymentResponse
+        +handleWebhook(Request): WebhookResponse
+        +verifyWebhookSignature(Request): bool
+    }
+    
+    class PaymentResponse <<ValueObject>> {
+        +success: bool
+        +payment_id: string|null
+        +status: string
+        +redirect_url: string|null
+        +message: string|null
+        +raw_response: array
+        
+        +__construct(array)
+        +isSuccessful(): bool
+        +requiresRedirect(): bool
+    }
+    
+    class WebhookResponse <<ValueObject>> {
+        +event_type: string
+        +payment_id: string
+        +status: string
+        +amount: float
+        +metadata: array
+        
+        +__construct(array)
+        +isPaymentSuccess(): bool
+        +isPaymentFailed(): bool
+    }
+    
+    class CheckoutSession <<ValueObject>> {
+        +cart_id: int
+        +user_id: int|null
+        +shipping_address: array
+        +billing_address: array
+        +shipping_method: array
+        +payment_method: PaymentMethod
+        +totals: array
+        +token: string
+        +expires_at: datetime
+        
+        +__construct(array)
+        +isExpired(): bool
+        +toArray(): array
+    }
+}
+
+' ==================== SERVICE PACKAGE ====================
+package "Services" <<Rectangle>> #E8F4FD {
+    
+    class CartService <<Service>> {
+        -ProductService productService
+        -StockService stockService
+        
+        +__construct(ProductService, StockService)
+        +getCart(int|null, string|null): Cart|null
+        +addToCart(array): CartItem
+        +updateCartItem(int, int): CartItem
+        +removeFromCart(int): bool
+        +clearCart(int|null, string|null): bool
+        +validateCart(Cart): array
+        +migrateGuestCart(string, int): Cart
+        +calculateTotals(Cart): array
+        -createGuestCart(string): Cart
+        -createUserCart(int): Cart
+        -validateProduct(int): Product
+        -checkStock(int, int): bool
+        -calculateItemTotal(CartItem): decimal
+    }
+    
+    class CheckoutService <<Service>> {
+        -CartService cartService
+        -ShippingCalculator shippingCalculator
+        
+        +__construct(CartService, ShippingCalculator)
+        +initiateCheckout(Cart): CheckoutSession
+        +validateCheckout(CheckoutSession): array
+        +calculateShipping(array, Cart): array
+        +calculateTotals(Cart, array): array
+        +createCheckoutSession(Cart, array): CheckoutSession
+        -validateAddress(array): array
+        -generateCheckoutToken(): string
+    }
+    
+    class OrderService <<Service>> {
+        -CartService cartService
+        -PaymentService paymentService
+        -StockService stockService
+        
+        +__construct(CartService, PaymentService, StockService)
+        +createOrder(CheckoutSession): Order
+        +getOrder(string): Order|null
+        +getOrderHistory(int, array): Collection
+        +updateOrderStatus(int, OrderStatus, string): Order
+        +cancelOrder(int, int, string, string): Order
+        +createOrderFromCart(Cart, array): Order
+        -generateOrderNumber(): string
+        -createOrderItems(Order, Cart): void
+        -createAddresses(Order, array): void
+        -lockStock(Cart): void
+        -releaseStock(Order): void
+        -recordStatusChange(Order, OrderStatus, OrderStatus): void
+    }
+    
+    class PaymentService <<Service>> {
+        -PaymentAdapterInterface adapter
+        
+        +__construct(PaymentAdapterInterface)
+        +initiatePayment(Order): Payment
+        +processWebhook(string, Request): WebhookResponse
+        +refundPayment(int, decimal, string): PaymentRefund
+        +getPaymentStatus(int): PaymentStatus
+        +handlePaymentSuccess(Payment): void
+        +handlePaymentFailure(Payment, string): void
+        -resolveAdapter(string): PaymentAdapterInterface
+        -validateWebhook(Request): bool
+        -createPaymentRecord(Order): Payment
+    }
+    
+    class AddressService <<Service>> {
+        +saveAddress(int, array): UserAddress
+        +getAddresses(int): Collection
+        +updateAddress(int, array): UserAddress
+        +deleteAddress(int): bool
+        +setDefaultAddress(int, int): UserAddress
+        +validateAddress(array): array
+    }
+}
+
+' ==================== CONTROLLER PACKAGE ====================
+package "HTTP Layer" <<Rectangle>> #F8E6F3 {
+    
+    class CartController <<Controller>> {
+        -CartService cartService
+        
+        +__construct(CartService)
+        +index(Request): JsonResponse
+        +store(AddToCartRequest): JsonResponse
+        +update(int, UpdateCartItemRequest): JsonResponse
+        +destroy(int): JsonResponse
+        +clear(Request): JsonResponse
+    }
+    
+    class CheckoutController <<Controller>> {
+        -CheckoutService checkoutService
+        
+        +__construct(CheckoutService)
+        +initiate(Request): JsonResponse
+        +calculateShipping(Request): JsonResponse
+        +validateAddress(Request): JsonResponse
+        +createSession(InitiateCheckoutRequest): JsonResponse
+    }
+    
+    class OrderController <<Controller>> {
+        -OrderService orderService
+        
+        +__construct(OrderService)
+        +index(Request): JsonResponse
+        +store(PlaceOrderRequest): JsonResponse
+        +show(string): JsonResponse
+        +cancel(int, CancelOrderRequest): JsonResponse
+        +track(string): JsonResponse
+    }
+    
+    class PaymentWebhookController <<Controller>> {
+        -PaymentService paymentService
+        
+        +__construct(PaymentService)
+        +handle(string, Request): JsonResponse
+    }
+}
+
+' ==================== REQUEST PACKAGE ====================
+package "Requests" <<Rectangle>> #FFE8D6 {
+    
+    class AddToCartRequest <<Request>> {
+        +rules(): array
+        +messages(): array
+        +authorize(): bool
+    }
+    
+    class UpdateCartItemRequest <<Request>> {
+        +rules(): array
+        +messages(): array
+    }
+    
+    class InitiateCheckoutRequest <<Request>> {
+        +rules(): array
+        +messages(): array
+    }
+    
+    class PlaceOrderRequest <<Request>> {
+        +rules(): array
+        +messages(): array
+    }
+    
+    class CancelOrderRequest <<Request>> {
+        +rules(): array
+        +authorize(): bool
+    }
+    
+    class UpdateOrderStatusRequest <<Request>> {
+        +rules(): array
+        +authorize(): bool
+    }
+}
+
+' ==================== RESOURCE PACKAGE ====================
+package "Resources" <<Rectangle>> #E0F5FE {
+    
+    class CartResource <<Resource>> {
+        +toArray(Request): array
+    }
+    
+    class CartItemResource <<Resource>> {
+        +toArray(Request): array
+    }
+    
+    class OrderResource <<Resource>> {
+        +toArray(Request): array
+    }
+    
+    class OrderItemResource <<Resource>> {
+        +toArray(Request): array
+    }
+    
+    class PaymentResource <<Resource>> {
+        +toArray(Request): array
+    }
+}
+
+' ==================== EVENT PACKAGE ====================
+package "Events" <<Rectangle>> #FCE8F4 {
+    
+    class CartItemAdded <<Event>> {
+        +cart: Cart
+        +item: CartItem
+        +__construct(Cart, CartItem)
+    }
+    
+    class CartItemUpdated <<Event>> {
+        +cart: Cart
+        +item: CartItem
+        +oldQuantity: int
+        +__construct(Cart, CartItem, int)
+    }
+    
+    class CartMigrated <<Event>> {
+        +guestCart: Cart
+        +userCart: Cart
+        +user: User
+        +__construct(Cart, Cart, User)
+    }
+    
+    class OrderCreated <<Event>> {
+        +order: Order
+        +__construct(Order)
+    }
+    
+    class OrderConfirmed <<Event>> {
+        +order: Order
+        +__construct(Order)
+    }
+    
+    class OrderShipped <<Event>> {
+        +order: Order
+        +trackingNumber: string
+        +__construct(Order, string)
+    }
+    
+    class OrderCancelled <<Event>> {
+        +order: Order
+        +reason: string
+        +__construct(Order, string)
+    }
+    
+    class PaymentCompleted <<Event>> {
+        +payment: Payment
+        +order: Order
+        +__construct(Payment, Order)
+    }
+    
+    class PaymentFailed <<Event>> {
+        +payment: Payment
+        +reason: string
+        +__construct(Payment, string)
+    }
+}
+
+' ==================== PROVIDER PACKAGE ====================
+package "Providers" <<Rectangle>> #E6EEFA {
+    
+    class OrderServiceProvider <<Provider>> {
+        +register(): void
+        +boot(): void
+    }
+    
+    class CartServiceProvider <<Provider>> {
+        +register(): void
+    }
+    
+    class CheckoutServiceProvider <<Provider>> {
+        +register(): void
+    }
+    
+    class PaymentServiceProvider <<Provider>> {
+        +register(): void
+    }
+}
+
+' ==================== RELATIONSHIPS ====================
+
+' Model Relationships
+Cart "1" --> "*" CartItem : contains
+Cart "*" --> "0..1" Order : converts to
+Cart "*" --> "1" User : belongs to (nullable)
+CartItem "*" --> "1" Product : references
+Order "1" --> "*" OrderItem : contains
+Order "1" --> "1" OrderShippingAddress : has
+Order "1" --> "0..1" OrderBillingAddress : has
+Order "1" --> "*" Payment : has
+Order "1" --> "*" OrderStatusHistory : tracks
+Order "*" --> "0..1" User : belongs to
+OrderItem "*" --> "1" Product : references
+Payment "1" --> "*" PaymentRefund : has
+
+' Enum Usage in Models
+Cart --> CartStatus : uses
+Order --> OrderStatus : uses
+Order --> PaymentStatus : uses
+Order --> PaymentMethod : uses
+CartItem --> DiscountType : uses
+OrderItem --> DiscountType : uses
+Payment --> PaymentStatus : uses
+Payment --> PaymentMethod : uses
+
+' Service Dependencies
+CartService --> CartServiceInterface : implements
+CheckoutService --> CheckoutServiceInterface : implements
+OrderService --> OrderServiceInterface : implements
+PaymentService --> PaymentServiceInterface : implements
+
+CartService ..> Cart : manages
+CartService ..> CartItem : manages
+CartService ..> Product : uses
+OrderService ..> Order : manages
+OrderService ..> CartService : uses
+OrderService ..> PaymentService : uses
+CheckoutService ..> CartService : uses
+CheckoutService ..> CheckoutSession : creates
+PaymentService ..> Payment : manages
+PaymentService ..> PaymentAdapterInterface : uses
+
+' Controller Dependencies
+CartController --> CartService : uses
+CheckoutController --> CheckoutService : uses
+OrderController --> OrderService : uses
+PaymentWebhookController --> PaymentService : uses
+
+' Request Usage
+CartController ..> AddToCartRequest : validates
+CartController ..> UpdateCartItemRequest : validates
+CheckoutController ..> InitiateCheckoutRequest : validates
+OrderController ..> PlaceOrderRequest : validates
+OrderController ..> CancelOrderRequest : validates
+
+' Resource Usage
+CartController ..> CartResource : returns
+OrderController ..> OrderResource : returns
+PaymentWebhookController ..> PaymentResource : returns
+
+' Event Dispatching
+CartService ..> CartItemAdded : dispatches
+CartService ..> CartItemUpdated : dispatches
+CartService ..> CartMigrated : dispatches
+OrderService ..> OrderCreated : dispatches
+OrderService ..> OrderConfirmed : dispatches
+OrderService ..> OrderShipped : dispatches
+OrderService ..> OrderCancelled : dispatches
+PaymentService ..> PaymentCompleted : dispatches
+PaymentService ..> PaymentFailed : dispatches
+
+' Service Provider Registration
+OrderServiceProvider ..> OrderService : registers
+CartServiceProvider ..> CartService : registers
+CheckoutServiceProvider ..> CheckoutService : registers
+PaymentServiceProvider ..> PaymentService : registers
+
+' Value Object Usage
+PaymentService ..> PaymentResponse : returns
+PaymentService ..> WebhookResponse : returns
+CheckoutService ..> CheckoutSession : manages
+
+' Payment Adapter
+PaymentAdapterInterface ..> PaymentResponse : returns
+PaymentAdapterInterface ..> WebhookResponse : returns
+
+' ==================== NOTES ====================
+
+note top of Cart
+  **Guest vs Logged Cart:**
+  - user_id NULL = Guest cart (session-based)
+  - user_id SET = Logged user cart (persistent)
+  - cart_token for guest identification
+  - Auto-migration on login/register
+end note
+
+note top of Order
+  **Order Immutability:**
+  - Product snapshot in order_items
+  - Addresses copied, not referenced
+  - Historical data preserved
+  - Status tracked in history table
+end note
+
+note top of Payment
+  **Gateway Integration:**
+  - Uses PaymentAdapterInterface
+  - Supports multiple gateways
+  - Webhook signature verification
+  - Transaction logging
+end note
+
+note bottom of PaymentAdapterInterface
+  **Adapter Pattern:**
+  Developers implement this interface
+  to integrate payment gateways:
+  - StripeAdapter
+  - PayPalAdapter
+  - RazorpayAdapter
+  - Custom adapters
+end note
+
+note right of CartService
+  **Integration Points:**
+  - ProductService (validate products)
+  - StockService (check availability)
+  - Event system (cart changes)
+  - ResponseProtocol (API responses)
+end note
+
+note right of OrderService
+  **Stock Management:**
+  - Lock stock on order creation
+  - Release on cancellation
+  - Integration with StockService
+  - Transaction-based operations
+end note
+
+' ==================== LEGEND ====================
+
+legend bottom right
+  |= Color |= Layer |
+  | <back:#FFF9C4>   </back> | Enums |
+  | <back:#E8F5E9>   </back> | Models (Data Layer) |
+  | <back:#FFF8E1>   </back> | Contracts/Interfaces |
+  | <back:#E8F4FD>   </back> | Services (Business Logic) |
+  | <back:#F8E6F3>   </back> | Controllers (HTTP Layer) |
+  | <back:#FFE8D6>   </back> | Requests (Validation) |
+  | <back:#E0F5FE>   </back> | Resources (Response) |
+  | <back:#FCE8F4>   </back> | Events (Domain Events) |
+  | <back:#E6EEFA>   </back> | Providers (Registration) |
+  
+  **Relationships:**
+  → Composition/Association
+  ..> Dependency (uses)
+  --|> Inheritance/Implementation
+  
+  **Total Classes:** 55+
+  - 5 Enums
+  - 9 Models
+  - 5 Services
+  - 4 Controllers
+  - 6 Requests
+  - 5 Resources
+  - 9 Events
+  - 4 Providers
+  - 8 Contracts/Value Objects
+endlegend
+
+@enduml

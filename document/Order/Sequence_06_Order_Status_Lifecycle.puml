@@ -1,0 +1,463 @@
+@startuml Order Status Lifecycle Management
+!theme plain
+title Order Status Lifecycle Management\n(Status Transitions, Automated Jobs, and Event Triggers)
+
+' Participants
+actor "Customer" as customer #LightBlue
+actor "Admin" as admin #LightGreen
+participant "OrderController" as controller #E3F2FD
+participant "OrderService" as orderService #E3F2FD
+participant "Scheduled Jobs" as scheduler #FFF3E0
+participant "TrackingService" as trackingService #E3F2FD
+database "Database" as db #E8F5E9
+participant "EventSystem" as eventSystem #FCE4EC
+participant "Notification\nService" as notificationService #FCE4EC
+
+' ===== INITIAL ORDER CREATION =====
+group Status: PENDING_PAYMENT → CONFIRMED
+    note over customer, orderService
+        **Trigger:** Payment completed
+        See Payment Processing diagram
+    end note
+    
+    customer -> controller: Order created with payment_method = 'card'
+    controller -> orderService: Order created\n{status: 'pending_payment'}
+    
+    note over orderService
+        Waiting for payment gateway webhook
+        Or COD orders confirmed immediately
+    end note
+    
+    alt Payment completed (webhook received)
+        controller -> orderService: updateOrderStatus(\n  order_id: 123,\n  new_status: OrderStatus::CONFIRMED,\n  note: 'Payment completed'\n)
+        activate orderService
+        
+        orderService -> db: BEGIN TRANSACTION
+        activate db
+        
+        orderService -> orderService: Validate transition:\nPENDING_PAYMENT → CONFIRMED\nAllowed: ✓
+        
+        orderService -> db: UPDATE orders\nSET\n  status = 'confirmed',\n  confirmed_at = NOW()\nWHERE id = 123
+        
+        orderService -> db: INSERT INTO order_status_history\n(\n  order_id: 123,\n  from_status: 'pending_payment',\n  to_status: 'confirmed',\n  changed_by_type: 'system',\n  note: 'Payment completed'\n)
+        
+        orderService -> db: COMMIT
+        deactivate db
+        
+        orderService -> eventSystem: dispatch('order.confirmed', order)
+        activate eventSystem
+        eventSystem ->> notificationService: Send order confirmation
+        deactivate eventSystem
+        
+        orderService --> controller: Order updated
+        deactivate orderService
+        
+    else Payment timeout (48 hours)
+        note over scheduler
+            **Scheduled Job:**
+            CancelExpiredOrders.php
+            Runs: Every hour
+        end note
+        
+        scheduler -> orderService: Auto-cancel expired orders
+        activate orderService
+        
+        orderService -> db: SELECT * FROM orders\nWHERE status = 'pending_payment'\nAND created_at < NOW() - INTERVAL 48 HOUR
+        db --> orderService: Expired orders [3 orders]
+        
+        loop For each expired order
+            orderService -> orderService: cancelOrder(\n  order_id,\n  cancelled_by_type: 'system',\n  reason: 'Payment timeout'\n)
+            note right
+                See Cancellation diagram
+                - Stock restored
+                - Status = 'cancelled'
+            end note
+        end
+        
+        orderService --> scheduler: 3 orders cancelled
+        deactivate orderService
+    end
+end
+
+' ===== CONFIRMED TO PROCESSING =====
+group Status: CONFIRMED → PROCESSING
+    note over admin, orderService
+        **Trigger:** Admin/system starts order preparation
+    end note
+    
+    admin -> controller: PUT /api/v1/admin/orders/{id}/status\n{status: 'processing'}
+    activate controller
+    
+    controller -> orderService: updateOrderStatus(\n  order_id: 123,\n  new_status: OrderStatus::PROCESSING,\n  changed_by: admin\n)
+    activate orderService
+    
+    orderService -> db: SELECT * FROM orders WHERE id = 123
+    db --> orderService: Order {status: 'confirmed'}
+    
+    orderService -> orderService: Validate transition:\nCONFIRMED → PROCESSING\nAllowed: ✓
+    
+    alt Transition valid
+        orderService -> db: BEGIN TRANSACTION
+        activate db
+        
+        orderService -> db: UPDATE orders\nSET\n  status = 'processing',\n  processing_at = NOW()\nWHERE id = 123
+        
+        orderService -> db: INSERT INTO order_status_history\n(\n  order_id: 123,\n  from_status: 'confirmed',\n  to_status: 'processing',\n  changed_by_type: 'admin',\n  changed_by: admin.id,\n  note: 'Order preparation started'\n)
+        
+        orderService -> db: COMMIT
+        deactivate db
+        
+        orderService -> eventSystem: dispatch('order.processing', order)
+        activate eventSystem
+        eventSystem ->> notificationService: Send processing notification
+        deactivate eventSystem
+        
+        orderService --> controller: Status updated
+        deactivate orderService
+        
+        controller --> admin: ResponseProtocol::success(\n  order,\n  'Order marked as processing'\n)
+        deactivate controller
+        
+    else Invalid transition
+        orderService --> controller: ValidationError
+        deactivate orderService
+        
+        controller --> admin: ResponseProtocol::error(\n  {allowed_transitions: [...]},\n  'Invalid status transition',\n  422\n)
+        deactivate controller
+    end
+end
+
+' ===== PROCESSING TO SHIPPED =====
+group Status: PROCESSING → SHIPPED
+    note over admin, orderService
+        **Trigger:** Order dispatched with tracking
+    end note
+    
+    admin -> controller: PUT /api/v1/admin/orders/{id}/ship\n{\n  tracking_number: 'TRK123456789',\n  carrier: 'FedEx',\n  estimated_delivery: '2025-01-05'\n}
+    activate controller
+    
+    controller -> orderService: shipOrder(\n  order_id: 123,\n  tracking_number,\n  carrier,\n  admin\n)
+    activate orderService
+    
+    orderService -> db: BEGIN TRANSACTION
+    activate db
+    
+    orderService -> db: UPDATE orders\nSET\n  status = 'shipped',\n  tracking_number = 'TRK123456789',\n  carrier = 'FedEx',\n  shipped_at = NOW()\nWHERE id = 123
+    
+    orderService -> db: INSERT INTO order_status_history\n(\n  order_id: 123,\n  from_status: 'processing',\n  to_status: 'shipped',\n  changed_by_type: 'admin',\n  changed_by: admin.id,\n  note: 'Shipped via FedEx - TRK123456789'\n)
+    
+    alt COD order
+        orderService -> db: UPDATE orders\nSET payment_status = 'cod_pending'\nWHERE id = 123
+        note right
+            Payment collected on delivery
+        end note
+    end
+    
+    orderService -> db: COMMIT
+    deactivate db
+    
+    orderService -> eventSystem: dispatch('order.shipped',\n{order, tracking_number, carrier})
+    activate eventSystem
+    eventSystem ->> notificationService: Send shipping notification\nwith tracking link
+    deactivate eventSystem
+    
+    orderService --> controller: Order shipped
+    deactivate orderService
+    
+    controller --> admin: ResponseProtocol::success(\n  order,\n  'Order marked as shipped'\n)
+    deactivate controller
+    
+    ' Customer tracking
+    customer -> controller: GET /api/v1/orders/{orderNumber}/track
+    activate controller
+    
+    controller -> trackingService: getTrackingInfo('TRK123456789', 'FedEx')
+    activate trackingService
+    
+    trackingService -> trackingService: Query carrier API\n(optional integration)
+    
+    trackingService --> controller: TrackingInfo:\n{\n  status: 'in_transit',\n  location: 'Memphis, TN',\n  estimated_delivery: '2025-01-05',\n  history: [...]\n}
+    deactivate trackingService
+    
+    controller --> customer: ResponseProtocol::success(\n  {order, tracking_info}\n)
+    deactivate controller
+end
+
+' ===== SHIPPED TO DELIVERED =====
+group Status: SHIPPED → DELIVERED
+    note over trackingService, orderService
+        **Trigger Options:**
+        1. Carrier webhook (automated)
+        2. Admin manual update
+        3. Customer confirmation
+    end note
+    
+    alt Option 1: Carrier Webhook (Automated)
+        trackingService ->> controller: POST /api/webhooks/carrier/fedex\n{\n  "tracking_number": "TRK123456789",\n  "status": "delivered",\n  "delivered_at": "2025-01-05 14:30:00",\n  "signature": "John Doe"\n}
+        activate controller
+        
+        controller -> orderService: markDelivered(\n  tracking_number: 'TRK123456789',\n  delivered_at,\n  signature\n)
+        activate orderService
+        
+    else Option 2: Admin Manual Update
+        admin -> controller: PUT /api/v1/admin/orders/{id}/deliver
+        activate controller
+        
+        controller -> orderService: markDelivered(order_id, admin)
+        activate orderService
+        
+    else Option 3: Customer Confirmation
+        customer -> controller: POST /api/v1/orders/{id}/confirm-delivery
+        activate controller
+        
+        controller -> orderService: markDelivered(order_id, customer)
+        activate orderService
+    end
+    
+    orderService -> db: BEGIN TRANSACTION
+    activate db
+    
+    orderService -> db: UPDATE orders\nSET\n  status = 'delivered',\n  delivered_at = NOW()\nWHERE id = 123
+    
+    orderService -> db: INSERT INTO order_status_history\n(\n  order_id: 123,\n  from_status: 'shipped',\n  to_status: 'delivered',\n  changed_by_type: 'system', // or 'admin' or 'customer'\n  note: 'Package delivered'\n)
+    
+    alt COD order
+        orderService -> db: UPDATE orders\nSET payment_status = 'paid'\nWHERE id = 123
+        
+        orderService -> db: UPDATE payments\nSET status = 'paid',\npaid_at = NOW()\nWHERE order_id = 123
+        
+        note right
+            **COD Payment Confirmation:**
+            Payment collected at delivery
+            Update payment status to 'paid'
+        end note
+    end
+    
+    orderService -> db: COMMIT
+    deactivate db
+    
+    orderService -> eventSystem: dispatch('order.delivered', order)
+    activate eventSystem
+    eventSystem ->> notificationService: Send delivery confirmation
+    eventSystem ->> scheduler: Schedule auto-complete job\n(7 days from now)
+    deactivate eventSystem
+    
+    orderService --> controller: Order delivered
+    deactivate orderService
+    
+    controller --> customer: ResponseProtocol::success(\n  order,\n  'Order delivered successfully'\n)
+    deactivate controller
+end
+
+' ===== DELIVERED TO COMPLETED =====
+group Status: DELIVERED → COMPLETED
+    note over scheduler, orderService
+        **Auto-Complete Job:**
+        CompleteDeliveredOrders.php
+        Runs: Daily at midnight
+        
+        Logic: Mark orders as completed
+        7 days after delivery
+    end note
+    
+    scheduler -> orderService: Auto-complete delivered orders
+    activate orderService
+    
+    orderService -> db: SELECT * FROM orders\nWHERE status = 'delivered'\nAND delivered_at < NOW() - INTERVAL 7 DAY
+    db --> orderService: Eligible orders [5 orders]
+    
+    loop For each order
+        orderService -> db: BEGIN TRANSACTION
+        activate db
+        
+        orderService -> db: UPDATE orders\nSET\n  status = 'completed',\n  completed_at = NOW()\nWHERE id = ?
+        
+        orderService -> db: INSERT INTO order_status_history\n(\n  order_id,\n  from_status: 'delivered',\n  to_status: 'completed',\n  changed_by_type: 'system',\n  note: 'Auto-completed after 7 days'\n)
+        
+        orderService -> db: COMMIT
+        deactivate db
+        
+        orderService -> eventSystem: dispatch('order.completed', order)
+        activate eventSystem
+        note over eventSystem
+            **Completion Triggers:**
+            - Request product review
+            - Unlock loyalty points
+            - Close support tickets
+            - Archive order data
+        end note
+        eventSystem ->> notificationService: Send review request
+        deactivate eventSystem
+    end
+    
+    orderService --> scheduler: 5 orders completed
+    deactivate orderService
+    
+    note over customer
+        **Customer receives:**
+        - Review request email
+        - Loyalty points credited
+        - Order marked as completed
+    end note
+end
+
+' ===== STATUS VALIDATION =====
+group Status Transition Validation
+    note over orderService
+        **Status State Machine:**
+        Enforced in OrderStatus enum
+        
+        canTransitionTo(OrderStatus $to): bool
+    end note
+    
+    orderService -> orderService: Check allowed transitions
+    
+    note right of orderService
+        **Allowed Transitions:**
+        
+        pending_payment →
+          ✓ confirmed
+          ✓ cancelled
+        
+        confirmed →
+          ✓ processing
+          ✓ cancelled
+        
+        processing →
+          ✓ shipped
+          ✓ cancelled
+        
+        shipped →
+          ✓ delivered
+          ✗ cannot cancel (use return)
+        
+        delivered →
+          ✓ completed
+          ✓ returned
+        
+        completed →
+          ✗ final state (immutable)
+        
+        cancelled →
+          ✗ final state (immutable)
+        
+        returned →
+          ✗ final state (immutable)
+    end note
+end
+
+' ===== SCHEDULED JOBS =====
+group Scheduled Jobs Overview
+    note over scheduler
+        **1. CancelExpiredOrders.php**
+        Schedule: Every hour
+        Action: Cancel orders pending payment > 48h
+        
+        **2. SendPaymentReminders.php**
+        Schedule: Daily at 9 AM
+        Reminders: 24h, 36h, 48h after order creation
+        
+        **3. CompleteDeliveredOrders.php**
+        Schedule: Daily at midnight
+        Action: Mark delivered orders as completed after 7 days
+        
+        **4. CleanupExpiredCarts.php**
+        Schedule: Daily at 2 AM
+        Action: Delete expired guest carts (> 30 days old)
+    end note
+end
+
+' Notes
+note over orderService, eventSystem
+    **Event-Driven Notifications:**
+    
+    Each status change dispatches an event:
+    
+    📧 order.confirmed
+       → Email: Order confirmation
+       → SMS: Order number
+    
+    ⚙️ order.processing
+       → Email: Preparation started
+       → Admin: Dashboard update
+    
+    📦 order.shipped
+       → Email: Shipping notification + tracking
+       → SMS: Tracking number
+       → Push: Shipment on the way
+    
+    🏠 order.delivered
+       → Email: Delivery confirmation
+       → SMS: Package delivered
+       → Schedule: Auto-complete in 7 days
+    
+    ✅ order.completed
+       → Email: Review request
+       → Loyalty: Credit points
+       → Analytics: Track completion rate
+    
+    ❌ order.cancelled
+       → Email: Cancellation confirmation
+       → Refund: Process refund
+       → Stock: Restore inventory
+    
+    🔄 order.returned
+       → Email: Return confirmation
+       → Refund: Process refund
+       → QC: Quality check required
+end note
+
+note over admin, customer
+    **Status Lifecycle Timeline:**
+    
+    Day 0:  ⏺ pending_payment (Order created)
+            ↓ (Payment completed or COD)
+    Day 0:  ✓ confirmed (Payment verified)
+            ↓ (Admin starts preparation)
+    Day 1:  ⚙️ processing (Picking & packing)
+            ↓ (Admin dispatches)
+    Day 2:  📦 shipped (In transit)
+            ↓ (Carrier delivers)
+    Day 5:  🏠 delivered (Package received)
+            ↓ (Auto after 7 days)
+    Day 12: ✅ completed (Final state)
+    
+    **Alternative Paths:**
+    
+    Any early status → ❌ cancelled
+    delivered → 🔄 returned (customer request)
+    
+    **Average Timeline:**
+    - Standard shipping: ~10 days
+    - Express shipping: ~5 days
+    - Same-day delivery: < 24 hours
+end note
+
+note over db
+    **order_status_history Table:**
+    
+    Provides complete audit trail:
+    - Who changed status (customer/admin/system)
+    - When changed (timestamp)
+    - From/to status (transition)
+    - Notes (reason, details)
+    
+    **Query Examples:**
+    
+    1. Order timeline:
+       SELECT * FROM order_status_history
+       WHERE order_id = 123
+       ORDER BY created_at
+    
+    2. Average processing time:
+       SELECT AVG(TIMESTAMPDIFF(
+         HOUR, confirmed_at, shipped_at
+       )) FROM orders
+    
+    3. Status distribution:
+       SELECT status, COUNT(*)
+       FROM orders
+       GROUP BY status
+end note
+
+@enduml

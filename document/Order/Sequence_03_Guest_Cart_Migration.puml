@@ -1,0 +1,398 @@
+@startuml Guest Cart Migration on Login
+!theme plain
+title Guest Cart Migration on Login/Register\n(Complex Merge Logic with Conflict Resolution)
+
+' Participants
+actor "Guest User" as guest #LightBlue
+actor "Logged User" as loggedUser #LightGreen
+participant "AuthController\n(Login/Register)" as authController #E3F2FD
+participant "Auth" as auth #E3F2FD
+participant "Session" as session #FFF3E0
+participant "CartMigration\nService" as migrationService #E3F2FD
+participant "CartService" as cartService #E3F2FD
+participant "ProductService" as productService #E3F2FD
+participant "StockService" as stockService #E3F2FD
+database "Database" as db #E8F5E9
+participant "EventSystem" as eventSystem #FCE4EC
+
+' ===== LOGIN/REGISTER FLOW =====
+group Authentication Trigger
+    guest -> authController: POST /api/v1/login\n{email: "user@example.com", password: "***"}
+    activate authController
+    
+    authController -> auth: attempt(email, password)
+    activate auth
+    auth -> db: SELECT * FROM users WHERE email = ?
+    db --> auth: User {id: 42, email: "user@example.com"}
+    auth --> authController: User authenticated
+    deactivate auth
+    
+    note over authController
+        **Migration also triggered by:**
+        - POST /register (new user)
+        - Social auth (Google/Facebook)
+        - Magic link login
+    end note
+    
+    ' Check for guest cart
+    authController -> session: get('cart_token')
+    activate session
+    session --> authController: cart_token = "uuid-1234-5678-abcd"
+    deactivate session
+    
+    alt cart_token exists in session
+        note over authController, migrationService
+            Guest had items in cart before login
+            Need to merge with user's existing cart
+        end note
+        
+        authController -> migrationService: migrateGuestCart(\n  cart_token: "uuid-1234-5678-abcd",\n  user_id: 42\n)
+        activate migrationService
+        
+        ' ===== LOAD CARTS =====
+        group Load Both Carts
+            migrationService -> cartService: getCart(user_id: null, cart_token: "uuid-1234-5678-abcd")
+            activate cartService
+            
+            cartService -> db: SELECT * FROM carts\nWHERE cart_token = 'uuid-1234-5678-abcd'\nAND status = 'active'
+            db --> cartService: Guest Cart {id: 10, user_id: null}
+            
+            cartService -> db: SELECT * FROM cart_items\nWHERE cart_id = 10
+            db --> cartService: Guest Cart Items:\n[\n  {product_id: 1, quantity: 2, price: 29.99},\n  {product_id: 5, quantity: 1, price: 99.00},\n  {product_id: 8, quantity: 3, price: 15.50}\n]
+            
+            cartService --> migrationService: Guest Cart with 3 items
+            deactivate cartService
+            
+            migrationService -> cartService: getCart(user_id: 42, cart_token: null)
+            activate cartService
+            
+            cartService -> db: SELECT * FROM carts\nWHERE user_id = 42\nAND status = 'active'
+            
+            alt User cart exists
+                db --> cartService: User Cart {id: 15, user_id: 42}
+                
+                cartService -> db: SELECT * FROM cart_items\nWHERE cart_id = 15
+                db --> cartService: User Cart Items:\n[\n  {product_id: 1, quantity: 1, price: 29.99},\n  {product_id: 7, quantity: 2, price: 45.00}\n]
+                
+                cartService --> migrationService: User Cart with 2 items
+                
+            else No user cart
+                cartService -> db: INSERT INTO carts\n(user_id: 42, status: 'active')
+                db --> cartService: New User Cart {id: 15}
+                
+                cartService --> migrationService: Empty User Cart
+            end
+            deactivate cartService
+        end
+        
+        ' ===== ITEM-BY-ITEM MERGE =====
+        group Item-by-Item Migration (Complex Logic)
+            note over migrationService
+                **Merge Strategy:**
+                For each guest cart item:
+                1. Check if product exists in user cart
+                2. If yes → Merge quantities (with stock validation)
+                3. If no → Transfer item to user cart
+                4. Handle conflicts and errors gracefully
+            end note
+            
+            migrationService -> migrationService: Initialize:\nwarnings = []\nerrors = []\nmerged_items = []\nnew_items = []
+            
+            ' ===== ITEM 1: Product exists in both carts =====
+            loop For each guest cart item
+                note over migrationService
+                    **Processing Item 1:**
+                    Guest: product_id=1, quantity=2
+                    User: product_id=1, quantity=1 (EXISTS)
+                end note
+                
+                migrationService -> db: SELECT * FROM cart_items\nWHERE cart_id = 15\nAND product_id = 1
+                db --> migrationService: User Cart Item {id: 100, product_id: 1, quantity: 1}
+                
+                alt Product exists in user cart
+                    migrationService -> migrationService: Calculate merged_qty:\nguest_qty (2) + user_qty (1) = 3
+                    
+                    ' Validate stock for merged quantity
+                    migrationService -> stockService: checkStock(\n  product_id: 1,\n  quantity: 3\n)
+                    activate stockService
+                    
+                    stockService -> db: SELECT stock_quantity, is_active\nFROM products\nWHERE id = 1
+                    db --> stockService: {stock_quantity: 10, is_active: true}
+                    
+                    alt Stock sufficient (qty 3 <= stock 10)
+                        stockService --> migrationService: {available: true, stock: 10}
+                        deactivate stockService
+                        
+                        migrationService -> db: UPDATE cart_items\nSET quantity = 3,\ntotal_price = 3 * 29.99\nWHERE id = 100
+                        db --> migrationService: Updated
+                        
+                        migrationService -> migrationService: Add to merged_items:\n{\n  product_id: 1,\n  old_guest_qty: 2,\n  old_user_qty: 1,\n  new_qty: 3,\n  action: 'merged'\n}
+                        
+                    else Stock insufficient (e.g., only 2 available)
+                        stockService --> migrationService: {available: false, max_available: 2}
+                        deactivate stockService
+                        
+                        migrationService -> db: UPDATE cart_items\nSET quantity = 2\nWHERE id = 100
+                        db --> migrationService: Updated (capped at max)
+                        
+                        migrationService -> migrationService: Add to warnings:\n{\n  type: 'stock_limit',\n  product_id: 1,\n  product_name: 'Product A',\n  requested_qty: 3,\n  available_qty: 2,\n  message: 'Only 2 items available. Quantity adjusted.'\n}
+                        
+                        migrationService -> migrationService: Add to merged_items:\n{\n  product_id: 1,\n  new_qty: 2,\n  action: 'merged_with_limit'\n}
+                    end
+                    
+                ' ===== ITEM 2: Product only in guest cart =====
+                else Product NOT in user cart
+                    note over migrationService
+                        **Processing Item 2:**
+                        Guest: product_id=5, quantity=1
+                        User: (doesn't have this product)
+                    end note
+                    
+                    ' Validate product still exists and active
+                    migrationService -> productService: getProduct(5)
+                    activate productService
+                    
+                    productService -> db: SELECT * FROM products WHERE id = 5
+                    db --> productService: Product {id: 5, is_active: true, price: 99.00}
+                    
+                    alt Product valid and active
+                        productService --> migrationService: Product {id: 5, name: "Product B"}
+                        deactivate productService
+                        
+                        ' Check stock
+                        migrationService -> stockService: checkStock(\n  product_id: 5,\n  quantity: 1\n)
+                        activate stockService
+                        
+                        stockService -> db: SELECT stock_quantity FROM products WHERE id = 5
+                        db --> stockService: stock_quantity: 5
+                        
+                        alt Stock available
+                            stockService --> migrationService: {available: true}
+                            deactivate stockService
+                            
+                            ' Transfer item to user cart
+                            migrationService -> db: INSERT INTO cart_items\n(\n  cart_id: 15,\n  product_id: 5,\n  product_sku: "SKU-B",\n  product_name: "Product B",\n  quantity: 1,\n  unit_price: 99.00,\n  total_price: 99.00,\n  product_snapshot: {...}\n)
+                            db --> migrationService: cart_item.id = 200
+                            
+                            migrationService -> migrationService: Add to new_items:\n{\n  product_id: 5,\n  quantity: 1,\n  action: 'transferred'\n}
+                            
+                        else Out of stock
+                            stockService --> migrationService: {available: false, stock: 0}
+                            deactivate stockService
+                            
+                            migrationService -> migrationService: Add to warnings:\n{\n  type: 'out_of_stock',\n  product_id: 5,\n  product_name: "Product B",\n  message: 'Product is out of stock. Not added to cart.'\n}
+                        end
+                        
+                    else Product inactive or deleted
+                        productService --> migrationService: null
+                        deactivate productService
+                        
+                        migrationService -> migrationService: Add to errors:\n{\n  type: 'product_unavailable',\n  product_id: 5,\n  message: 'Product no longer available'\n}
+                    end
+                end
+                
+                ' ===== ITEM 3: Another new product =====
+                note over migrationService
+                    **Processing Item 3:**
+                    Guest: product_id=8, quantity=3
+                    User: (doesn't have this product)
+                    ... (Similar logic to Item 2)
+                end note
+                
+            end
+        end
+        
+        ' ===== FINALIZE MIGRATION =====
+        group Finalize Migration
+            ' Mark guest cart as migrated
+            migrationService -> db: UPDATE carts\nSET status = 'migrated',\nmigrated_to_cart_id = 15,\nmigrated_at = NOW()\nWHERE id = 10
+            db --> migrationService: Guest cart updated
+            
+            note right of db
+                **Preserve Guest Cart:**
+                Don't delete for audit trail
+                Link to user cart for reference
+            end note
+            
+            ' Recalculate user cart totals
+            migrationService -> cartService: calculateTotals(user_cart)
+            activate cartService
+            
+            cartService -> db: SELECT SUM(total_price) FROM cart_items WHERE cart_id = 15
+            db --> cartService: subtotal: 174.97
+            
+            cartService -> cartService: Calculate:\n- Apply discounts\n- Calculate tax\n- Add shipping estimate
+            
+            cartService --> migrationService: Totals:\n{\n  subtotal: 174.97,\n  discount: 0,\n  tax: 17.50,\n  shipping_estimate: 10.00,\n  grand_total: 202.47,\n  item_count: 4\n}
+            deactivate cartService
+            
+            ' Dispatch migration event
+            migrationService -> eventSystem: dispatch('cart.migrated',\n{\n  guest_cart_id: 10,\n  user_cart_id: 15,\n  user_id: 42,\n  merged_items: 1,\n  new_items: 2,\n  warnings: 1,\n  errors: 0\n})
+            activate eventSystem
+            note over eventSystem
+                **Event Listeners:**
+                - Log migration for analytics
+                - Track conversion (guest → user)
+                - Notify admin of merge conflicts
+            end note
+            deactivate eventSystem
+            
+            ' Clear session cart token
+            migrationService -> session: forget('cart_token')
+            activate session
+            session --> migrationService: Token cleared
+            deactivate session
+            
+            ' Prepare migration summary
+            migrationService -> migrationService: Build migration summary:\n{\n  cart: User Cart,\n  merged_items: [\n    {product_id: 1, old_qty: 1+2, new_qty: 3}\n  ],\n  new_items: [\n    {product_id: 5, qty: 1},\n    {product_id: 8, qty: 3}\n  ],\n  warnings: [\n    {type: 'stock_limit', product_id: 1, ...}\n  ],\n  errors: [],\n  totals: {item_count: 4, grand_total: 202.47}\n}
+            
+            alt Has warnings but successful
+                migrationService --> authController: MigrationResult\n{success: true, cart, warnings, summary}
+                deactivate migrationService
+                
+                authController --> loggedUser: ResponseProtocol::success(\n  {user, cart, migration_summary},\n  'Login successful. Cart merged with X warnings.'\n)
+                deactivate authController
+                
+                note over loggedUser
+                    **UI shows:**
+                    ✓ Login successful
+                    ⚠️ Some items had limited stock
+                    → Show detailed warnings
+                    → Link to updated cart
+                end note
+                
+            else Clean migration (no warnings/errors)
+                migrationService --> authController: MigrationResult\n{success: true, cart, merged: 1, added: 2}
+                deactivate migrationService
+                
+                authController --> loggedUser: ResponseProtocol::success(\n  {user, cart},\n  'Login successful. Cart updated with your items.'\n)
+                deactivate authController
+                
+            else Has critical errors
+                migrationService --> authController: MigrationResult\n{success: false, cart, errors}
+                deactivate migrationService
+                
+                authController --> loggedUser: ResponseProtocol::success(\n  {user, cart, errors},\n  'Login successful. Some cart items unavailable.'\n)
+                deactivate authController
+            end
+        end
+        
+    else No cart_token in session
+        note over authController
+            User had no guest cart
+            Just return their existing cart (if any)
+        end note
+        
+        authController -> cartService: getCart(user_id: 42)
+        activate cartService
+        cartService -> db: SELECT * FROM carts WHERE user_id = 42
+        db --> cartService: User Cart (or empty)
+        cartService --> authController: Cart
+        deactivate cartService
+        
+        authController --> loggedUser: ResponseProtocol::success(\n  {user, cart},\n  'Login successful'\n)
+        deactivate authController
+    end
+end
+
+' Alternative: Registration Flow
+group Alternative: New User Registration
+    guest -> authController: POST /api/v1/register\n{name, email, password, cart_token}
+    
+    authController -> db: INSERT INTO users (name, email, password_hash)
+    db --> authController: User {id: 50}
+    
+    alt cart_token provided
+        authController -> db: UPDATE carts\nSET user_id = 50,\ncart_token = NULL\nWHERE cart_token = ?
+        note right of db
+            **Simple Assignment:**
+            For new users, no merge needed
+            Just assign guest cart to new user
+        end note
+        
+        authController -> eventSystem: dispatch('cart.assigned', {cart, user})
+        
+        authController --> loggedUser: Registration successful with cart
+    else No cart_token
+        authController --> loggedUser: Registration successful (empty cart)
+    end
+end
+
+' Notes
+note over migrationService, db
+    **Merge Conflict Resolution Strategies:**
+    
+    1. **Quantity Conflicts (same product in both carts):**
+       - Merge quantities: guest_qty + user_qty
+       - Validate against stock
+       - Cap at max_available if exceeded
+       - Warn user about adjustment
+    
+    2. **Stock Conflicts:**
+       - Check stock availability for all items
+       - Cap quantities at max_available
+       - Provide clear warnings
+       - Never fail migration (partial success okay)
+    
+    3. **Product Unavailable:**
+       - Product deleted/deactivated
+       - Skip item (don't add to cart)
+       - Add to errors list
+       - Continue with other items
+    
+    4. **Price Changes:**
+       - Always use current price (not guest cart price)
+       - Guest cart may have stale data
+       - Show warning if price increased significantly
+    
+    **Edge Cases Handled:**
+    - Guest cart expired → Clean up
+    - User cart + Guest cart both have same product
+    - Product stock = 0 (out of stock)
+    - Product deleted between guest session and login
+    - Price changed since guest added to cart
+    - Multiple concurrent logins (race condition)
+end note
+
+note over authController, loggedUser
+    **Migration Success Metrics:**
+    
+    **Complete Success:**
+    - All guest items transferred/merged
+    - No warnings or errors
+    - Stock sufficient for all quantities
+    
+    **Partial Success:**
+    - Some items transferred
+    - Stock limits applied (warnings)
+    - Some products unavailable (errors)
+    - User still has a functional cart
+    
+    **Response Structure:**
+    {
+      "status": "success",
+      "message": "Login successful. Cart merged.",
+      "data": {
+        "user": {...},
+        "cart": {
+          "id": 15,
+          "items": [...],
+          "totals": {...}
+        },
+        "migration_summary": {
+          "merged_items": 1,
+          "new_items": 2,
+          "warnings": [{...}],
+          "errors": []
+        }
+      }
+    }
+    
+    **UI Recommendations:**
+    - Show success toast
+    - Display warnings prominently
+    - Link directly to cart page
+    - Highlight adjusted quantities
+end note
+
+@enduml

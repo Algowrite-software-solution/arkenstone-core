@@ -1,0 +1,626 @@
+@startuml Order Module - Component Diagram
+!theme plain
+
+title Order Module - Comprehensive Component Diagram\n(Layered Architecture with External Integrations)
+
+' Component styling
+skinparam componentStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 60
+skinparam ranksep 80
+
+' Color definitions by layer
+skinparam component {
+    BackgroundColor<<Presentation>> #F3E5F5
+    BorderColor<<Presentation>> #7B1FA2
+    BackgroundColor<<Service>> #E3F2FD
+    BorderColor<<Service>> #1976D2
+    BackgroundColor<<Model>> #E8F5E9
+    BorderColor<<Model>> #4CAF50
+    BackgroundColor<<Infrastructure>> #FFF3E0
+    BorderColor<<Infrastructure>> #FF6F00
+    BackgroundColor<<External>> #FFEBEE
+    BorderColor<<External>> #D32F2F
+    BackgroundColor<<Enum>> #FFF9C4
+    BorderColor<<Enum>> #F57F17
+    BackgroundColor<<Event>> #FCE4EC
+    BorderColor<<Event>> #C2185B
+}
+
+skinparam interface {
+    BackgroundColor #FFF3E0
+    BorderColor #FF6F00
+}
+
+skinparam database {
+    BackgroundColor #E8F5E9
+    BorderColor #4CAF50
+}
+
+skinparam cloud {
+    BackgroundColor #FFEBEE
+    BorderColor #D32F2F
+}
+
+' ================================
+' ORDER MODULE BOUNDARY
+' ================================
+package "Order Module" <<Rectangle>> #FAFAFA {
+    
+    ' ================================
+    ' PRESENTATION LAYER
+    ' ================================
+    package "Presentation Layer (HTTP Interface)" <<Presentation>> {
+        
+        component [CartController] <<Controller>> as CartCtrl
+        component [CheckoutController] <<Controller>> as CheckoutCtrl
+        component [OrderController] <<Controller>> as OrderCtrl
+        component [PaymentWebhookController] <<Controller>> as WebhookCtrl
+        
+        note right of CartCtrl
+            **Responsibilities:**
+            - Cart CRUD operations
+            - Add/update/remove items
+            - Clear cart
+            - View cart with totals
+        end note
+        
+        package "Request Validators" {
+            component [AddToCartRequest] <<Request>>
+            component [UpdateCartItemRequest] <<Request>>
+            component [InitiateCheckoutRequest] <<Request>>
+            component [PlaceOrderRequest] <<Request>>
+            component [CancelOrderRequest] <<Request>>
+            component [UpdateOrderStatusRequest] <<Request>>
+        }
+        
+        package "API Resources" {
+            component [CartResource] <<Resource>>
+            component [CartItemResource] <<Resource>>
+            component [OrderResource] <<Resource>>
+            component [OrderItemResource] <<Resource>>
+            component [PaymentResource] <<Resource>>
+            component [AddressResource] <<Resource>>
+        }
+    }
+    
+    ' ================================
+    ' BUSINESS LOGIC LAYER
+    ' ================================
+    package "Business Logic Layer (Domain Services)" <<Service>> {
+        
+        component [CartService] <<Service>> as CartSvc
+        component [CheckoutService] <<Service>> as CheckoutSvc
+        component [OrderService] <<Service>> as OrderSvc
+        component [PaymentService] <<Service>> as PaymentSvc
+        component [AddressService] <<Service>> as AddressSvc
+        
+        note right of CartSvc
+            **Core Responsibilities:**
+            - Guest/Logged cart management
+            - Cart migration on login
+            - Product validation
+            - Stock checking
+            - Totals calculation
+            - Event dispatching
+        end note
+        
+        note right of OrderSvc
+            **Transaction Management:**
+            - Database transaction wrapping
+            - Stock locking (FOR UPDATE)
+            - Order number generation
+            - Status validation
+            - Cancellation logic
+        end note
+        
+        note right of PaymentSvc
+            **Gateway Integration:**
+            - Adapter pattern usage
+            - Webhook processing
+            - Signature verification
+            - Refund management
+        end note
+        
+        package "Helper Services" {
+            component [ShippingCalculator] <<Helper>>
+            component [PriceCalculator] <<Helper>>
+            component [StockValidator] <<Helper>>
+        }
+    }
+    
+    ' ================================
+    ' DATA ACCESS LAYER
+    ' ================================
+    package "Data Access Layer (Eloquent Models)" <<Model>> {
+        
+        package "Cart Models" {
+            component [Cart] <<Model>> as CartModel
+            component [CartItem] <<Model>> as CartItemModel
+            
+            note bottom of CartModel
+                **Key Fields:**
+                - user_id (nullable)
+                - cart_token (UUID for guests)
+                - status (CartStatus enum)
+                - discount_amount
+                - expires_at
+                
+                **Relationships:**
+                - belongsTo(User)
+                - hasMany(CartItem)
+                - belongsTo(Order)
+            end note
+        }
+        
+        package "Order Models" {
+            component [Order] <<Model>> as OrderModel
+            component [OrderItem] <<Model>> as OrderItemModel
+            component [OrderShippingAddress] <<Model>>
+            component [OrderBillingAddress] <<Model>>
+            component [OrderStatusHistory] <<Model>>
+            
+            note bottom of OrderModel
+                **Key Fields:**
+                - order_number (ORD-YYYYMMDD-XXX)
+                - status (OrderStatus enum)
+                - payment_status (PaymentStatus enum)
+                - payment_method (PaymentMethod enum)
+                - tracking_number
+                - carrier
+                - grand_total
+                
+                **Business Logic:**
+                - canBeCancelled()
+                - generateOrderNumber()
+                - updateStatus()
+            end note
+        }
+        
+        package "Payment Models" {
+            component [Payment] <<Model>> as PaymentModel
+            component [PaymentRefund] <<Model>>
+            
+            note bottom of PaymentModel
+                **Key Fields:**
+                - gateway (stripe, paypal, etc.)
+                - gateway_payment_id
+                - status (PaymentStatus enum)
+                - gateway_response (JSON)
+                - redirect_url
+                
+                **Methods:**
+                - isSuccessful()
+                - canBeRefunded()
+            end note
+        }
+    }
+    
+    ' ================================
+    ' INFRASTRUCTURE LAYER
+    ' ================================
+    package "Infrastructure Layer" <<Infrastructure>> {
+        
+        package "Service Providers" {
+            component [OrderServiceProvider] <<Provider>> as OrderProvider
+            component [CartServiceProvider] <<Provider>>
+            component [CheckoutServiceProvider] <<Provider>>
+            component [PaymentServiceProvider] <<Provider>>
+            
+            note bottom of OrderProvider
+                **Responsibilities:**
+                - Register all services as singletons
+                - Load routes
+                - Publish migrations
+                - Publish config files
+                - Bootstrap event system
+            end note
+        }
+        
+        package "Payment Adapters (Extensibility Point)" {
+            interface "PaymentAdapterInterface" as PaymentAdapter
+            component [StripeAdapter] <<Adapter>> as StripeAdapter
+            component [PayPalAdapter] <<Adapter>> as PayPalAdapter
+            component [RazorpayAdapter] <<Adapter>> as RazorpayAdapter
+            component [CustomAdapter] <<Adapter>> as CustomAdapter
+            
+            note top of PaymentAdapter
+                **Contract Methods:**
+                + createPayment(array): PaymentResponse
+                + capturePayment(string): PaymentResponse
+                + refundPayment(string, float): PaymentResponse
+                + getPaymentStatus(string): PaymentResponse
+                + handleWebhook(Request): WebhookResponse
+                + verifyWebhookSignature(Request): bool
+                
+                **Adapter Pattern:**
+                Developers implement this interface
+                to integrate new payment gateways
+            end note
+        }
+        
+        package "Value Objects" {
+            component [CheckoutSession] <<ValueObject>>
+            component [PaymentResponse] <<ValueObject>>
+            component [WebhookResponse] <<ValueObject>>
+        }
+        
+        package "Enums (Domain Types)" <<Enum>> {
+            component [OrderStatus] <<Enum>>
+            component [PaymentStatus] <<Enum>>
+            component [PaymentMethod] <<Enum>>
+            component [CartStatus] <<Enum>>
+            component [DiscountType] <<Enum>>
+        }
+        
+        package "Arkenstone Core Integration" {
+            component [Event System] <<Support>>
+            component [ResponseProtocol] <<Helper>>
+        }
+    }
+    
+    ' ================================
+    ' DOMAIN EVENTS
+    ' ================================
+    package "Domain Events (Event-Driven Architecture)" <<Event>> {
+        
+        package "Cart Events" {
+            component [CartItemAdded] <<Event>>
+            component [CartItemUpdated] <<Event>>
+            component [CartItemRemoved] <<Event>>
+            component [CartMigrated] <<Event>>
+        }
+        
+        package "Order Events" {
+            component [OrderCreated] <<Event>>
+            component [OrderConfirmed] <<Event>>
+            component [OrderProcessing] <<Event>>
+            component [OrderShipped] <<Event>>
+            component [OrderDelivered] <<Event>>
+            component [OrderCompleted] <<Event>>
+            component [OrderCancelled] <<Event>>
+        }
+        
+        package "Payment Events" {
+            component [PaymentInitiated] <<Event>>
+            component [PaymentCompleted] <<Event>>
+            component [PaymentFailed] <<Event>>
+            component [RefundInitiated] <<Event>>
+        }
+    }
+}
+
+' ================================
+' EXTERNAL SYSTEMS
+' ================================
+
+package "Internal Arkenstone Modules" <<External>> {
+    component [Product Module] <<Module>> as ProductModule
+    component [Stock Module] <<Module>> as StockModule
+    component [User/Auth Module] <<Module>> as UserModule
+    
+    note bottom of ProductModule
+        **Provides:**
+        - ProductService
+        - Product Model
+        - Product validation
+        - Price information
+    end note
+    
+    note bottom of StockModule
+        **Provides:**
+        - StockService
+        - Stock reservation
+        - Stock deduction/restoration
+        - Stock movements tracking
+    end note
+}
+
+package "External Systems" {
+    cloud "Payment Gateways" as PaymentGateways {
+        component [Stripe API] <<External>>
+        component [PayPal API] <<External>>
+        component [Razorpay API] <<External>>
+        component [Custom Gateway] <<External>>
+    }
+    
+    cloud "Shipping Carriers" as ShippingCarriers {
+        component [FedEx API] <<External>>
+        component [UPS API] <<External>>
+        component [DHL API] <<External>>
+    }
+    
+    database "Database (MySQL/PostgreSQL)" as DB {
+        component [carts table]
+        component [cart_items table]
+        component [orders table]
+        component [order_items table]
+        component [payments table]
+        component [order_status_history table]
+    }
+    
+    component [Laravel Core] <<Framework>> as LaravelCore
+    
+    note bottom of LaravelCore
+        **Services Used:**
+        - Event Dispatcher
+        - Database Transaction Manager
+        - Queue System
+        - HTTP Client
+        - Validation System
+        - Session Manager
+    end note
+}
+
+' ================================
+' PRESENTATION → SERVICE DEPENDENCIES
+' ================================
+CartCtrl --> CartSvc : uses
+CheckoutCtrl --> CheckoutSvc : uses
+OrderCtrl --> OrderSvc : uses
+WebhookCtrl --> PaymentSvc : uses
+
+CartCtrl ..> [AddToCartRequest] : validates with
+CartCtrl ..> [UpdateCartItemRequest] : validates with
+CheckoutCtrl ..> [InitiateCheckoutRequest] : validates with
+OrderCtrl ..> [PlaceOrderRequest] : validates with
+OrderCtrl ..> [CancelOrderRequest] : validates with
+
+CartCtrl ..> [CartResource] : returns
+OrderCtrl ..> [OrderResource] : returns
+WebhookCtrl ..> [PaymentResource] : returns
+
+' ================================
+' SERVICE → SERVICE DEPENDENCIES
+' ================================
+CartSvc --> ProductModule : validates products
+CartSvc --> StockModule : checks stock
+CartSvc --> CartModel : manages
+CartSvc --> CartItemModel : manages
+
+CheckoutSvc --> CartSvc : uses
+CheckoutSvc --> [ShippingCalculator] : uses
+CheckoutSvc --> [CheckoutSession] : creates
+
+OrderSvc --> CartSvc : loads cart
+OrderSvc --> PaymentSvc : initiates payment
+OrderSvc --> StockModule : locks stock
+OrderSvc --> OrderModel : manages
+OrderSvc --> OrderItemModel : creates
+OrderSvc --> [OrderShippingAddress] : creates
+OrderSvc --> [OrderBillingAddress] : creates
+OrderSvc --> [OrderStatusHistory] : tracks
+
+PaymentSvc --> PaymentAdapter : uses interface
+PaymentSvc --> PaymentModel : manages
+PaymentSvc --> [PaymentRefund] : creates
+
+AddressSvc --> UserModule : loads addresses
+
+' ================================
+' SERVICE → MODEL DEPENDENCIES
+' ================================
+CartSvc ..> [CartStatus] : uses enum
+OrderSvc ..> [OrderStatus] : uses enum
+OrderSvc ..> [PaymentStatus] : uses enum
+PaymentSvc ..> [PaymentMethod] : uses enum
+
+' ================================
+' MODEL → DATABASE DEPENDENCIES
+' ================================
+CartModel --> DB : persists to
+CartItemModel --> DB : persists to
+OrderModel --> DB : persists to
+OrderItemModel --> DB : persists to
+PaymentModel --> DB : persists to
+[OrderStatusHistory] --> DB : persists to
+
+' ================================
+' EVENT DISPATCHING
+' ================================
+CartSvc ..> [CartItemAdded] : dispatches
+CartSvc ..> [CartItemUpdated] : dispatches
+CartSvc ..> [CartMigrated] : dispatches
+
+OrderSvc ..> [OrderCreated] : dispatches
+OrderSvc ..> [OrderConfirmed] : dispatches
+OrderSvc ..> [OrderShipped] : dispatches
+OrderSvc ..> [OrderCancelled] : dispatches
+
+PaymentSvc ..> [PaymentCompleted] : dispatches
+PaymentSvc ..> [PaymentFailed] : dispatches
+
+[CartItemAdded] --> [Event System] : via
+[OrderCreated] --> [Event System] : via
+[PaymentCompleted] --> [Event System] : via
+
+' ================================
+' PAYMENT ADAPTER PATTERN
+' ================================
+PaymentSvc --> PaymentAdapter : <<interface>>
+StripeAdapter ..|> PaymentAdapter : implements
+PayPalAdapter ..|> PaymentAdapter : implements
+RazorpayAdapter ..|> PaymentAdapter : implements
+CustomAdapter ..|> PaymentAdapter : implements
+
+StripeAdapter --> [Stripe API] : integrates with
+PayPalAdapter --> [PayPal API] : integrates with
+RazorpayAdapter --> [Razorpay API] : integrates with
+
+' ================================
+' SERVICE PROVIDER REGISTRATION
+' ================================
+OrderProvider ..> CartSvc : registers
+OrderProvider ..> CheckoutSvc : registers
+OrderProvider ..> OrderSvc : registers
+OrderProvider ..> PaymentSvc : registers
+
+[CartServiceProvider] ..> CartSvc : registers
+[CheckoutServiceProvider] ..> CheckoutSvc : registers
+[PaymentServiceProvider] ..> PaymentSvc : registers
+[PaymentServiceProvider] ..> PaymentAdapter : resolves
+
+' ================================
+' INFRASTRUCTURE DEPENDENCIES
+' ================================
+[Event System] --> LaravelCore : uses Laravel Event Dispatcher
+[ResponseProtocol] ..> LaravelCore : uses Laravel Response
+OrderProvider --> LaravelCore : extends ServiceProvider
+DB --> LaravelCore : uses Laravel Database
+
+CartSvc --> [Event System] : dispatches via
+OrderSvc --> [Event System] : dispatches via
+PaymentSvc --> [Event System] : dispatches via
+
+CartCtrl --> [ResponseProtocol] : formats response
+OrderCtrl --> [ResponseProtocol] : formats response
+CheckoutCtrl --> [ResponseProtocol] : formats response
+
+' ================================
+' SHIPPING INTEGRATION (FUTURE)
+' ================================
+OrderSvc ..> ShippingCarriers : tracks orders (optional)
+
+' ================================
+' NOTES & LEGENDS
+' ================================
+
+note top of "Order Module"
+    **Order Module Architecture**
+    
+    **Design Principles:**
+    - Layered Architecture (Presentation → Business → Data → Infrastructure)
+    - Dependency Inversion (Services depend on interfaces, not implementations)
+    - Single Responsibility (Each component has one clear purpose)
+    - Event-Driven (Loose coupling via events)
+    - Adapter Pattern (Payment gateway extensibility)
+    
+    **Key Patterns:**
+    1. Service Layer Pattern - Business logic in services
+    2. Repository Pattern - Models as data access layer
+    3. Adapter Pattern - Payment gateway abstraction
+    4. Event Sourcing - Order status history tracking
+    5. Strategy Pattern - Shipping calculation
+end note
+
+note bottom of "Payment Adapters (Extensibility Point)"
+    **Adding New Payment Gateway:**
+    
+    1. Create adapter class implementing PaymentAdapterInterface
+    2. Implement all interface methods
+    3. Add configuration to config/arkenstone.php:
+       'gateways' => [
+           'newgateway' => [
+               'adapter' => NewGatewayAdapter::class,
+               'key' => env('GATEWAY_KEY'),
+           ]
+       ]
+    4. No changes to PaymentService required!
+    
+    **Developer Extensibility:**
+    Supports any payment provider without core changes
+end note
+
+note bottom of "Domain Events (Event-Driven Architecture)"
+    **Event-Driven Benefits:**
+    
+    ✓ Loose Coupling - Services don't directly depend on each other
+    ✓ Extensibility - Add listeners without modifying services
+    ✓ Auditability - Complete event log
+    ✓ Asynchronous - Events can trigger queued jobs
+    
+    **Event Listeners (Developer-Defined):**
+    - Email notifications
+    - SMS alerts
+    - Analytics tracking
+    - Webhook dispatches
+    - Cache invalidation
+    - Audit logging
+end note
+
+note right of DB
+    **Database Schema Overview:**
+    
+    **Cart Tables:**
+    - carts (user/guest carts)
+    - cart_items (line items with snapshots)
+    
+    **Order Tables:**
+    - orders (main order records)
+    - order_items (immutable line items)
+    - order_shipping_addresses (address snapshots)
+    - order_billing_addresses (address snapshots)
+    - order_status_history (audit trail)
+    
+    **Payment Tables:**
+    - payments (transaction records)
+    - payment_refunds (refund tracking)
+    
+    **Total: 9 main tables**
+end note
+
+note bottom of StockModule
+    **Stock Integration Points:**
+    
+    1. **Cart Phase:**
+       - Soft reservation (cache-based, 30 min)
+       - Prevents overselling during browsing
+    
+    2. **Order Phase:**
+       - Hard deduction (database transaction)
+       - Row-level locks (FOR UPDATE)
+       - Stock movements logging
+    
+    3. **Cancellation:**
+       - Stock restoration
+       - Reverse stock movements
+end note
+
+note bottom of ProductModule
+    **Product Integration:**
+    
+    - Product validation (active, exists)
+    - Price retrieval (current pricing)
+    - Product snapshot creation
+    - Image URL resolution
+    - Category/brand relationships
+    
+    **Snapshot Storage:**
+    Cart and Order items store full product JSON
+    to preserve data even if product changes/deletes
+end note
+
+' ================================
+' LEGEND
+' ================================
+legend bottom right
+    |= Color |= Layer/Type |
+    | <back:#F3E5F5>   </back> | Presentation Layer (Controllers, Requests, Resources) |
+    | <back:#E3F2FD>   </back> | Business Logic Layer (Services) |
+    | <back:#E8F5E9>   </back> | Data Access Layer (Models) |
+    | <back:#FFF3E0>   </back> | Infrastructure (Providers, Adapters, Interfaces) |
+    | <back:#FFEBEE>   </back> | External Systems (APIs, Modules) |
+    | <back:#FFF9C4>   </back> | Enums (Domain Types) |
+    | <back:#FCE4EC>   </back> | Events (Domain Events) |
+    
+    **Relationship Types:**
+    ──> Solid line: Direct dependency (uses, manages)
+    ..> Dotted line: Indirect dependency (validates, dispatches, formats)
+    ..|> Dotted triangle: Interface implementation
+    
+    **Component Count:**
+    - 4 Controllers
+    - 5 Core Services + 3 Helper Services
+    - 9 Models
+    - 6 Request Validators
+    - 6 API Resources
+    - 4 Service Providers
+    - 13 Domain Events
+    - 5 Enums
+    - 3 Value Objects
+    - 4+ Payment Adapters (extensible)
+    
+    **Total: 55+ components**
+endlegend
+
+@enduml

@@ -1,0 +1,411 @@
+@startuml Order Cancellation with Refund
+!theme plain
+title Order Cancellation with Refund\n(Authorization, Refund Processing, and Stock Restoration)
+
+' Participants
+actor "Customer/Admin" as actor #LightBlue
+participant "OrderController" as controller #E3F2FD
+participant "OrderService" as orderService #E3F2FD
+participant "PaymentService" as paymentService #E3F2FD
+participant "PaymentAdapter" as adapter #FFF3E0
+participant "Payment Gateway" as gateway #FFEBEE
+participant "StockService" as stockService #E3F2FD
+database "Database" as db #E8F5E9
+participant "EventSystem" as eventSystem #FCE4EC
+participant "Notification\nService" as notificationService #FCE4EC
+
+' Main Flow
+actor -> controller: POST /api/v1/orders/{id}/cancel\n{\n  reason: 'Changed mind',\n  note: 'Need to order different size'\n}
+activate controller
+
+controller -> orderService: cancelOrder(\n  order_id: 123,\n  user: actor,\n  reason,\n  note\n)
+activate orderService
+
+' ===== AUTHORIZATION CHECK =====
+group Step 1: Authorization and Eligibility
+    orderService -> db: SELECT * FROM orders WHERE id = 123
+    activate db
+    db --> orderService: Order\n{\n  id: 123,\n  user_id: 42,\n  status: 'processing',\n  payment_status: 'paid',\n  payment_method: 'card',\n  grand_total: 155.80\n}
+    deactivate db
+    
+    ' Authorization check
+    alt Actor is Customer
+        orderService -> orderService: Check ownership:\norder.user_id == actor.id
+        
+        alt Not owner
+            orderService --> controller: UnauthorizedError
+            deactivate orderService
+            controller --> actor: ResponseProtocol::error(\n  null,\n  'Unauthorized to cancel this order',\n  403\n)
+            deactivate controller
+        end
+        
+    else Actor is Admin
+        note over orderService
+            Admin can cancel any order
+            Log admin action for audit trail
+        end note
+    end
+    
+    ' Eligibility check
+    orderService -> orderService: Check status eligibility:\nisCancellable()
+    
+    note right of orderService
+        **Cancellable Statuses:**
+        ✓ pending_payment
+        ✓ confirmed
+        ✓ processing
+        
+        **NOT Cancellable:**
+        ✗ shipped (use return flow)
+        ✗ delivered (use return flow)
+        ✗ completed
+        ✗ already cancelled
+        ✗ returned
+    end note
+    
+    alt Order not cancellable
+        orderService --> controller: ValidationError
+        deactivate orderService
+        controller --> actor: ResponseProtocol::error(\n  {current_status: order.status},\n  'Order cannot be cancelled in current status',\n  422\n)
+        deactivate controller
+    end
+end
+
+' ===== DATABASE TRANSACTION =====
+orderService -> db: BEGIN TRANSACTION
+activate db #FFCCCC
+note over db
+    **🔒 TRANSACTION STARTS**
+    All cancellation operations atomic
+end note
+
+' ===== UPDATE ORDER STATUS =====
+group Step 2: Update Order Status
+    orderService -> db: UPDATE orders\nSET\n  status = 'cancelled',\n  cancelled_at = NOW(),\n  cancelled_by_type = ?,\n  cancelled_by = ?,\n  cancellation_reason = ?,\n  cancellation_note = ?\nWHERE id = 123
+    db --> orderService: Order updated
+    
+    orderService -> db: INSERT INTO order_status_history\n(\n  order_id: 123,\n  from_status: 'processing',\n  to_status: 'cancelled',\n  changed_by_type: 'customer', // or 'admin'\n  changed_by: 42,\n  note: 'Customer cancelled: Changed mind'\n)
+    db --> orderService: Status history recorded
+end
+
+' ===== PAYMENT HANDLING =====
+group Step 3: Payment Handling (Method-Specific)
+    orderService -> db: SELECT * FROM payments\nWHERE order_id = 123\nAND status = 'paid'
+    db --> orderService: Payment\n{\n  id: 50,\n  payment_method: 'card',\n  gateway: 'stripe',\n  gateway_payment_id: 'ch_123xyz',\n  amount: 155.80,\n  status: 'paid'\n}
+    
+    alt Payment Method = CARD (Gateway Payment)
+        note over orderService, paymentService
+            **Gateway Refund Required**
+            Money must be returned to customer's card
+        end note
+        
+        orderService -> paymentService: refundPayment(\n  payment_id: 50,\n  amount: 155.80,\n  reason: 'Order cancelled by customer'\n)
+        activate paymentService
+        
+        paymentService -> db: INSERT INTO payment_refunds\n(\n  payment_id: 50,\n  refund_amount: 155.80,\n  refund_method: 'gateway',\n  status: 'initiated',\n  reason: 'Order cancelled by customer',\n  initiated_at: NOW()\n)
+        db --> paymentService: payment_refund.id = 100
+        
+        paymentService -> paymentService: Resolve gateway adapter:\ngateway = 'stripe' → StripeAdapter
+        
+        paymentService -> adapter: refundPayment(\n  gateway_payment_id: 'ch_123xyz',\n  amount: 155.80\n)
+        activate adapter
+        
+        adapter -> gateway: POST /v1/refunds\n{\n  "charge": "ch_123xyz",\n  "amount": 15580,\n  "reason": "requested_by_customer"\n}
+        activate gateway
+        
+        alt Refund Successful
+            gateway --> adapter: 200 OK\n{\n  "id": "re_refund123",\n  "status": "succeeded",\n  "amount": 15580\n}
+            deactivate gateway
+            
+            adapter --> paymentService: PaymentResponse\n{success: true, refund_id: 're_refund123'}
+            deactivate adapter
+            
+            paymentService -> db: UPDATE payment_refunds\nSET\n  status = 'completed',\n  gateway_refund_id = 're_refund123',\n  completed_at = NOW()\nWHERE id = 100
+            
+            paymentService -> db: UPDATE payments\nSET\n  status = 'refunded',\n  refunded_at = NOW()\nWHERE id = 50
+            
+            note right of db
+                **Refund Timeline:**
+                - Instant approval by gateway
+                - Money credited in 5-7 business days
+                - Varies by bank and card issuer
+            end note
+            
+            paymentService --> orderService: RefundResult\n{success: true, estimated_days: '5-7', refund_id: 100}
+            deactivate paymentService
+            
+        else Refund Failed
+            gateway --> adapter: 400 Bad Request\n{error: 'Charge already refunded'}
+            deactivate gateway
+            
+            adapter --> paymentService: PaymentResponse\n{success: false, error: '...'}
+            deactivate adapter
+            
+            paymentService -> db: UPDATE payment_refunds\nSET status = 'failed',\nadmin_note = 'Gateway error: ...'\nWHERE id = 100
+            
+            paymentService --> orderService: RefundResult\n{success: false, error: '...'}
+            deactivate paymentService
+            
+            orderService -> db: ROLLBACK
+            note over db
+                **Transaction Rolled Back**
+                Order status NOT changed
+                Refund marked as failed
+            end note
+            deactivate db
+            
+            orderService --> controller: RefundError
+            deactivate orderService
+            controller --> actor: ResponseProtocol::error(\n  null,\n  'Refund failed. Contact support.',\n  500\n)
+            deactivate controller
+        end
+        
+    else Payment Method = BANK_TRANSFER
+        note over orderService
+            **Manual Refund Required**
+            Admin must process bank transfer
+        end note
+        
+        orderService -> db: INSERT INTO payment_refunds\n(\n  payment_id: 50,\n  refund_amount: 155.80,\n  refund_method: 'bank_transfer',\n  status: 'pending',\n  reason: 'Order cancelled',\n  initiated_at: NOW(),\n  estimated_completion: NOW() + 7 days\n)
+        db --> orderService: payment_refund.id created
+        
+        orderService -> db: UPDATE payments\nSET status = 'refunding'\nWHERE id = 50
+        
+        note right of db
+            **Manual Process:**
+            1. Admin reviews refund request
+            2. Processes bank transfer manually
+            3. Updates refund status to 'completed'
+            4. Customer receives money in 7-10 days
+        end note
+        
+    else Payment Method = COD
+        note over orderService
+            **No Refund Needed**
+            Payment not yet collected
+        end note
+        
+        orderService -> db: UPDATE payments\nSET status = 'cancelled'\nWHERE id = 50
+        
+        orderService -> db: UPDATE orders\nSET payment_status = 'cancelled'
+        
+        note right of db
+            COD orders cancelled before delivery
+            require no financial transaction
+        end note
+    end
+end
+
+' ===== STOCK RESTORATION =====
+group Step 4: Stock Restoration
+    orderService -> db: SELECT * FROM order_items WHERE order_id = 123
+    db --> orderService: Order Items:\n[\n  {product_id: 10, quantity: 2},\n  {product_id: 15, quantity: 1},\n  {product_id: 20, quantity: 5}\n]
+    
+    loop For each order item
+        orderService -> stockService: restoreStock(\n  product_id,\n  quantity,\n  reference_type: 'cancellation',\n  reference_id: 123\n)
+        activate stockService
+        
+        stockService -> db: UPDATE products\nSET stock_quantity = stock_quantity + ?\nWHERE id = ?
+        note right of db
+            **Stock Restoration:**
+            Add back cancelled quantities
+            to product inventory
+        end note
+        
+        stockService -> db: INSERT INTO stock_movements\n(\n  product_id,\n  type: 'addition',\n  quantity: +2,\n  reference_type: 'order_cancellation',\n  reference_id: 123,\n  notes: 'Order cancelled - stock restored'\n)
+        db --> stockService: Stock movement logged
+        
+        stockService --> orderService: Stock restored for product_id: 10
+        deactivate stockService
+    end
+    
+    note over orderService
+        All products back in inventory
+        Available for new orders
+    end note
+end
+
+' ===== COMMIT TRANSACTION =====
+orderService -> db: COMMIT
+note over db
+    **✅ TRANSACTION COMMITTED**
+    Changes persisted:
+    - Order status = 'cancelled'
+    - Payment refunded (or pending)
+    - Stock restored to products
+    - Status history recorded
+    - Refund record created
+end note
+deactivate db
+
+' ===== POST-TRANSACTION OPERATIONS =====
+group Step 5: Post-Cancellation Actions
+    ' Dispatch events
+    orderService -> eventSystem: dispatch('order.cancelled',\n{\n  order,\n  cancelled_by: actor,\n  refund_status,\n  reason\n})
+    activate eventSystem
+    
+    note over eventSystem
+        **Event Listeners:**
+        - Send cancellation confirmation
+        - Notify customer about refund timeline
+        - Alert admin (for manual refunds)
+        - Update analytics
+        - Log to audit trail
+    end note
+    
+    eventSystem ->> notificationService: Send cancellation email
+    activate notificationService
+    
+    alt Payment method = CARD
+        notificationService -> notificationService: Compose email:\n- Order cancelled confirmation\n- Refund initiated\n- Estimated refund timeline: 5-7 days\n- Include cancellation details
+        
+    else Payment method = BANK_TRANSFER
+        notificationService -> notificationService: Compose email:\n- Order cancelled confirmation\n- Manual refund pending admin review\n- Estimated timeline: 7-10 days\n- Support contact info
+        
+    else Payment method = COD
+        notificationService -> notificationService: Compose email:\n- Order cancelled confirmation\n- No payment refund needed\n- Order removed from delivery queue
+    end
+    
+    notificationService ->> notificationService: Send email to customer
+    deactivate notificationService
+    deactivate eventSystem
+    
+    ' Return response
+    orderService --> controller: CancellationResult\n{\n  order: {...},\n  refund: {\n    status: 'completed',\n    method: 'card',\n    amount: 155.80,\n    estimated_days: '5-7'\n  },\n  stock_restored: true\n}
+    deactivate orderService
+    
+    alt Payment method = CARD
+        controller --> actor: ResponseProtocol::success(\n  {order, refund_details},\n  'Order cancelled. Refund will be processed in 5-7 business days.'\n)
+        deactivate controller
+        
+    else Payment method = BANK_TRANSFER
+        controller --> actor: ResponseProtocol::success(\n  {order, refund_details},\n  'Order cancelled. Refund pending admin review (7-10 days).'\n)
+        deactivate controller
+        
+    else Payment method = COD
+        controller --> actor: ResponseProtocol::success(\n  {order},\n  'Order cancelled successfully. No payment collected.'\n)
+        deactivate controller
+    end
+end
+
+' Alternative: Admin Cancellation
+group Alternative: Admin-Initiated Cancellation
+    note over actor, controller
+        **Admin Cancellation Differences:**
+        - Can cancel any order (no ownership check)
+        - Requires admin_note (internal documentation)
+        - May include customer compensation
+        - Logged separately for audit
+    end note
+    
+    actor -> controller: POST /api/v1/admin/orders/{id}/cancel\n{\n  reason: 'Product unavailable',\n  admin_note: 'Supplier delayed, stock depleted',\n  customer_compensation: {\n    type: 'coupon',\n    value: 20,\n    code: 'SORRY20'\n  }\n}
+    
+    controller -> orderService: cancelOrder(\n  order_id,\n  cancelled_by_type: 'admin',\n  cancelled_by: admin.id,\n  ...\n)
+    
+    note over orderService
+        Same flow as customer cancellation
+        but with admin context
+        
+        Additional actions:
+        - Create compensation coupon
+        - Send apology email with coupon
+        - Flag for customer service follow-up
+    end note
+end
+
+' Notes
+note over orderService, paymentService
+    **Refund Method Decision Tree:**
+    
+    ┌─ Payment Method = CARD ──────────────────┐
+    │  → Call gateway API (Stripe/PayPal)      │
+    │  → Instant approval, 5-7 days for money  │
+    │  → Automatic refund status tracking      │
+    │  → Gateway handles all bank communication│
+    └───────────────────────────────────────────┘
+    
+    ┌─ Payment Method = BANK_TRANSFER ─────────┐
+    │  → Create manual refund request          │
+    │  → Admin reviews and processes           │
+    │  → Bank transfer initiated manually      │
+    │  → 7-10 days timeline                    │
+    │  → Requires admin action                 │
+    └───────────────────────────────────────────┘
+    
+    ┌─ Payment Method = COD ───────────────────┐
+    │  → No refund needed (not paid yet)       │
+    │  → Simply cancel order                   │
+    │  → Update delivery queue                 │
+    │  → Instant cancellation                  │
+    └───────────────────────────────────────────┘
+    
+    **Partial Refunds:**
+    Not shown but supported:
+    - Refund only some items
+    - Deduct restocking fees
+    - Apply compensation credits
+end note
+
+note over stockService, db
+    **Stock Restoration Logic:**
+    
+    **Why Restore Stock?**
+    - Products were deducted at order placement
+    - Cancellation means items not shipped
+    - Make available for other customers
+    
+    **Stock Movements Tracking:**
+    Every stock change logged:
+    1. Order placement: "deduction", qty: -2
+    2. Order cancellation: "addition", qty: +2
+    
+    **Edge Cases:**
+    - Product deleted: Still restore (orphaned stock)
+    - Product deactivated: Restore anyway
+    - Quantity < 0 after restore: Log error, investigate
+    
+    **Audit Trail:**
+    - Who cancelled (customer/admin)
+    - When cancelled
+    - Original order reference
+    - Restoration amounts
+end note
+
+note over actor, controller
+    **Cancellation Flow Summary:**
+    
+    1️⃣ **Authorization**
+       - Customer: Must own order
+       - Admin: Can cancel any order
+    
+    2️⃣ **Eligibility**
+       - Check order status (cancellable?)
+       - Validate not already shipped
+    
+    3️⃣ **Update Order**
+       - Set status to 'cancelled'
+       - Record who, when, why
+       - Log in status history
+    
+    4️⃣ **Process Refund**
+       - Card: Automatic via gateway
+       - Bank: Manual admin process
+       - COD: No refund needed
+    
+    5️⃣ **Restore Stock**
+       - Add quantities back to products
+       - Log stock movements
+       - Update inventory
+    
+    6️⃣ **Notify Customer**
+       - Confirmation email
+       - Refund timeline
+       - Support contact
+    
+    **Timeline:**
+    - Cancellation: Instant
+    - Stock restoration: Instant
+    - Refund: 5-10 days (varies by method)
+end note
+
+@enduml

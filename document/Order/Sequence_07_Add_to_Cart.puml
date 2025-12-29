@@ -1,0 +1,448 @@
+@startuml Add to Cart Flow
+!theme plain
+title Add to Cart Flow\n(Guest vs Logged User with Stock Validation)
+
+' Participants
+actor "User\n(Guest/Logged)" as user #LightBlue
+participant "CartController" as controller #E3F2FD
+participant "CartService" as cartService #E3F2FD
+participant "ProductService" as productService #E3F2FD
+participant "StockService" as stockService #E3F2FD
+participant "Auth" as auth #FFF3E0
+participant "Session" as session #FFF3E0
+database "Database" as db #E8F5E9
+participant "EventSystem" as eventSystem #FCE4EC
+
+' Main Flow
+user -> controller: POST /api/v1/cart/items\n{\n  "product_id": 10,\n  "quantity": 2,\n  "variant_options": {"size": "M", "color": "Blue"}\n}
+activate controller
+
+controller -> auth: Check authentication
+activate auth
+
+alt User authenticated
+    auth --> controller: User {id: 42, name: "John"}
+    deactivate auth
+    
+    note over controller
+        **Logged User Flow**
+        Cart persists in database
+        Linked to user account
+    end note
+    
+    controller -> cartService: addToCart(\n  user_id: 42,\n  cart_token: null,\n  product_id: 10,\n  quantity: 2\n)
+    activate cartService
+    
+    ' Get or create user cart
+    cartService -> db: SELECT * FROM carts\nWHERE user_id = 42\nAND status = 'active'\nLIMIT 1
+    activate db
+    
+    alt User cart exists
+        db --> cartService: Cart {id: 5, user_id: 42, status: 'active'}
+        
+    else No active cart
+        db --> cartService: null
+        deactivate db
+        
+        cartService -> db: INSERT INTO carts\n(user_id, status, created_at)\nVALUES (42, 'active', NOW())
+        activate db
+        db --> cartService: Cart {id: 5, user_id: 42}
+    end
+    deactivate db
+    
+else User not authenticated
+    auth --> controller: null (Guest)
+    deactivate auth
+    
+    note over controller
+        **Guest User Flow**
+        Cart stored in session
+        Identified by cart_token (UUID)
+    end note
+    
+    controller -> session: get('cart_token')
+    activate session
+    
+    alt cart_token exists
+        session --> controller: cart_token: "uuid-1234-5678"
+        deactivate session
+        
+    else No cart_token
+        session --> controller: null
+        deactivate session
+        
+        controller -> controller: Generate cart_token:\nStr::uuid()
+        controller -> session: put('cart_token', 'uuid-1234-5678')
+        activate session
+        session --> controller: Token stored
+        deactivate session
+    end
+    
+    controller -> cartService: addToCart(\n  user_id: null,\n  cart_token: "uuid-1234-5678",\n  product_id: 10,\n  quantity: 2\n)
+    activate cartService
+    
+    ' Get or create guest cart
+    cartService -> db: SELECT * FROM carts\nWHERE cart_token = 'uuid-1234-5678'\nAND status = 'active'\nLIMIT 1
+    activate db
+    
+    alt Guest cart exists
+        db --> cartService: Cart {id: 10, cart_token: "...", user_id: null}
+        
+    else No active cart
+        db --> cartService: null
+        deactivate db
+        
+        cartService -> db: INSERT INTO carts\n(\n  cart_token,\n  session_id,\n  user_id: NULL,\n  status: 'active',\n  expires_at: NOW() + 30 days,\n  created_at: NOW()\n)
+        activate db
+        db --> cartService: Cart {id: 10, cart_token: "..."}
+    end
+    deactivate db
+end
+
+' ===== PRODUCT VALIDATION =====
+group Product Validation
+    cartService -> productService: getProduct(10)
+    activate productService
+    
+    productService -> db: SELECT *\nFROM products\nWHERE id = 10
+    activate db
+    db --> productService: Product\n{\n  id: 10,\n  name: "T-Shirt",\n  sku: "TS-M-BLU",\n  price: 29.99,\n  is_active: true,\n  stock_quantity: 50\n}
+    deactivate db
+    
+    alt Product not found
+        productService --> cartService: null
+        deactivate productService
+        
+        cartService --> controller: ProductNotFoundError
+        deactivate cartService
+        
+        controller --> user: ResponseProtocol::error(\n  null,\n  'Product not found',\n  404\n)
+        deactivate controller
+        
+    else Product inactive
+        productService --> cartService: Product {is_active: false}
+        deactivate productService
+        
+        cartService --> controller: ProductInactiveError
+        deactivate cartService
+        
+        controller --> user: ResponseProtocol::error(\n  null,\n  'Product is no longer available',\n  422\n)
+        deactivate controller
+        
+    else Product valid
+        productService --> cartService: Product
+        deactivate productService
+    end
+end
+
+' ===== STOCK VALIDATION =====
+group Stock Validation
+    cartService -> stockService: checkStock(\n  product_id: 10,\n  requested_quantity: 2\n)
+    activate stockService
+    
+    stockService -> db: SELECT stock_quantity\nFROM products\nWHERE id = 10
+    activate db
+    db --> stockService: stock_quantity: 50
+    deactivate db
+    
+    alt Stock insufficient
+        stockService --> cartService: StockResult\n{\n  available: false,\n  requested: 2,\n  current_stock: 0,\n  message: 'Out of stock'\n}
+        deactivate stockService
+        
+        cartService --> controller: InsufficientStockError
+        deactivate cartService
+        
+        controller --> user: ResponseProtocol::error(\n  {available_stock: 0},\n  'Product is out of stock',\n  422\n)
+        deactivate controller
+        
+    else Stock sufficient
+        stockService --> cartService: StockResult\n{available: true, current_stock: 50}
+        deactivate stockService
+    end
+end
+
+' ===== CHECK EXISTING CART ITEM =====
+group Check Existing Cart Item
+    cartService -> db: SELECT * FROM cart_items\nWHERE cart_id = ?\nAND product_id = 10
+    activate db
+    
+    alt Item already in cart
+        db --> cartService: CartItem\n{\n  id: 100,\n  cart_id: 5,\n  product_id: 10,\n  quantity: 1,\n  unit_price: 29.99\n}
+        deactivate db
+        
+        note over cartService
+            **Update Existing Item:**
+            Merge quantities: old (1) + new (2) = 3
+        end note
+        
+        ' Re-validate stock for merged quantity
+        cartService -> stockService: checkStock(\n  product_id: 10,\n  requested_quantity: 3 // merged\n)
+        activate stockService
+        
+        stockService -> db: SELECT stock_quantity FROM products WHERE id = 10
+        activate db
+        db --> stockService: stock_quantity: 50
+        deactivate db
+        
+        alt Stock sufficient for merged quantity
+            stockService --> cartService: {available: true}
+            deactivate stockService
+            
+            cartService -> cartService: Calculate new total:\nunit_price (29.99) * quantity (3) = 89.97
+            
+            cartService -> db: UPDATE cart_items\nSET\n  quantity = 3,\n  total_price = 89.97,\n  updated_at = NOW()\nWHERE id = 100
+            activate db
+            db --> cartService: Cart item updated
+            deactivate db
+            
+            cartService -> eventSystem: dispatch('cart.item_updated',\n{\n  cart,\n  item,\n  old_quantity: 1,\n  new_quantity: 3\n})
+            activate eventSystem
+            deactivate eventSystem
+            
+            note over cartService
+                **Action:** Updated existing item
+            end note
+            
+        else Stock insufficient for merged quantity
+            stockService --> cartService: {available: false, max_available: 2}
+            deactivate stockService
+            
+            cartService --> controller: InsufficientStockError
+            deactivate cartService
+            
+            controller --> user: ResponseProtocol::error(\n  {\n    requested: 3,\n    available: 2,\n    current_in_cart: 1\n  },\n  'Not enough stock. Maximum 2 available.',\n  422\n)
+            deactivate controller
+        end
+        
+    else Item not in cart
+        db --> cartService: null
+        deactivate db
+        
+        note over cartService
+            **Create New Item:**
+            Add as new cart item
+        end note
+        
+        cartService -> cartService: Build product snapshot:\n{\n  "id": 10,\n  "name": "T-Shirt",\n  "sku": "TS-M-BLU",\n  "price": 29.99,\n  "image": "...",\n  "variant": {"size": "M", "color": "Blue"}\n}
+        
+        cartService -> cartService: Calculate total:\nunit_price (29.99) * quantity (2) = 59.98
+        
+        cartService -> db: INSERT INTO cart_items\n(\n  cart_id,\n  product_id,\n  product_sku: "TS-M-BLU",\n  product_name: "T-Shirt",\n  quantity: 2,\n  unit_price: 29.99,\n  discount_type: 'none',\n  discount_value: 0,\n  discount_amount: 0,\n  tax_rate: 0,\n  tax_amount: 0,\n  total_price: 59.98,\n  product_snapshot: JSON,\n  created_at: NOW()\n)
+        activate db
+        db --> cartService: CartItem {id: 100, cart_id: 5}
+        deactivate db
+        
+        cartService -> eventSystem: dispatch('cart.item_added',\n{cart, item})
+        activate eventSystem
+        note over eventSystem
+            **Event Listeners:**
+            - Analytics tracking
+            - Abandoned cart timer
+            - Product recommendation engine
+        end note
+        deactivate eventSystem
+        
+        note over cartService
+            **Action:** Created new cart item
+        end note
+    end
+end
+
+' ===== OPTIONAL: SOFT STOCK RESERVATION =====
+group Optional: Soft Stock Reservation
+    note over cartService, stockService
+        **Soft Reservation (Optional):**
+        Temporarily reduce available stock
+        Prevent overselling during browsing
+        Auto-expires after 30 minutes
+    end note
+    
+    alt Soft reservation enabled
+        cartService -> stockService: softReserveStock(\n  product_id: 10,\n  quantity: 2,\n  cart_id: 5,\n  expires_in: 30 minutes\n)
+        activate stockService
+        
+        stockService -> stockService: Store in cache:\nkey: "stock_reservation:{product_id}:{cart_id}"\nvalue: {quantity: 2, expires_at: +30min}
+        
+        note right of stockService
+            **Cache-Based Reservation:**
+            - Redis or Laravel cache
+            - Not database-backed
+            - Auto-expires
+            - Released on checkout or cart abandonment
+        end note
+        
+        stockService --> cartService: Reservation created
+        deactivate stockService
+    end
+end
+
+' ===== CALCULATE CART TOTALS =====
+group Calculate Cart Totals
+    cartService -> cartService: calculateTotals(cart)
+    
+    cartService -> db: SELECT\n  SUM(total_price) as subtotal,\n  COUNT(*) as item_count\nFROM cart_items\nWHERE cart_id = ?
+    activate db
+    db --> cartService: {subtotal: 89.97, item_count: 3}
+    deactivate db
+    
+    cartService -> db: UPDATE carts\nSET\n  discount_amount = 0,\n  updated_at = NOW()\nWHERE id = ?
+    activate db
+    db --> cartService: Cart updated
+    deactivate db
+    
+    note right of cartService
+        **Cart Totals:**
+        {
+          "subtotal": 89.97,
+          "discount_amount": 0,
+          "item_count": 3,
+          "estimated_tax": 7.20,
+          "estimated_total": 97.17
+        }
+        
+        Note: Final tax and shipping
+        calculated at checkout
+    end note
+end
+
+' ===== RETURN RESPONSE =====
+group Return Response
+    cartService --> controller: CartItem\n{id: 100, quantity: 3, ...}
+    deactivate cartService
+    
+    controller -> cartService: getCart(cart_id)
+    activate cartService
+    
+    cartService -> db: SELECT * FROM carts WHERE id = ?
+    activate db
+    db --> cartService: Cart with items
+    deactivate db
+    
+    cartService --> controller: Cart\n{\n  id: 5,\n  items: [3 items],\n  totals: {subtotal: 89.97, ...}\n}
+    deactivate cartService
+    
+    controller --> user: ResponseProtocol::success(\n  {\n    cart,\n    item_added: {...},\n    action: 'updated', // or 'added'\n    totals\n  },\n  'Item added to cart'\n)
+    deactivate controller
+end
+
+' Alternative: Maximum Quantity Limit
+group Alternative: Maximum Quantity Per Product
+    note over cartService
+        **Business Rule:**
+        Max 10 units per product per cart
+    end note
+    
+    alt Quantity exceeds limit (e.g., 15)
+        cartService -> cartService: Validate:\nrequested_qty (15) > max_allowed (10)
+        
+        cartService --> controller: QuantityLimitError
+        
+        controller --> user: ResponseProtocol::error(\n  {max_allowed: 10},\n  'Maximum 10 units per product',\n  422\n)
+    end
+end
+
+' Notes
+note over user, controller
+    **Guest vs Logged User Differences:**
+    
+    📊 **Guest Cart:**
+    - Stored with cart_token (UUID)
+    - Session-based identification
+    - Expires after 30 days
+    - user_id = NULL
+    - session_id stored for tracking
+    - Migrated on login/register
+    
+    👤 **Logged Cart:**
+    - Stored with user_id
+    - Persists across devices
+    - No expiration (until completed)
+    - cart_token = NULL
+    - Survives logout/login
+    - Can have multiple historical carts
+    
+    **Shared Behavior:**
+    - Same validation logic
+    - Same stock checking
+    - Same event dispatching
+    - Same total calculations
+end note
+
+note over cartService, stockService
+    **Stock Validation Layers:**
+    
+    1️⃣ **Add to Cart:**
+       - Check current stock availability
+       - Validate requested quantity
+       - Soft reserve (optional, 30 min)
+    
+    2️⃣ **Checkout:**
+       - Re-validate all cart items
+       - Check stock hasn't changed
+       - Soft reserve again (15 min)
+    
+    3️⃣ **Order Placement:**
+       - Final validation inside transaction
+       - Hard lock (FOR UPDATE)
+       - Commit stock deduction
+       - Create stock_movements record
+    
+    **Why Multiple Checks?**
+    - Stock changes between cart and checkout
+    - Prevent race conditions
+    - Ensure data integrity
+    - Better user experience (early warnings)
+end note
+
+note over eventSystem
+    **Event-Driven Features:**
+    
+    📊 cart.item_added
+       → Analytics: Track popular products
+       → Recommendations: Show related items
+       → Marketing: Trigger email campaigns
+       → Inventory: Alert low stock
+    
+    🔄 cart.item_updated
+       → Analytics: Track quantity changes
+       → Pricing: Apply bulk discounts
+       → Notifications: Price drop alerts
+    
+    ⏰ Abandoned Cart Detection
+       → Timer starts on first item added
+       → Email reminder after 1 hour
+       → SMS reminder after 24 hours
+       → Discount coupon after 48 hours
+    
+    💰 Dynamic Pricing
+       → Apply real-time promotions
+       → Calculate bulk discounts
+       → Show loyalty pricing
+end note
+
+note over db
+    **cart_items Table Structure:**
+    
+    Key Fields:
+    - cart_id: Links to cart
+    - product_id: Reference to product
+    - product_sku: Copy for historical reference
+    - product_name: Copy for display
+    - quantity: Number of items
+    - unit_price: Price per item (snapshot)
+    - discount_type: 'percentage', 'fixed', 'none'
+    - discount_value: Amount or percentage
+    - discount_amount: Calculated discount
+    - tax_rate: Applicable tax rate
+    - tax_amount: Calculated tax
+    - total_price: Final line total
+    - product_snapshot: Full JSON of product data
+    
+    **Why Snapshot Data?**
+    - Product may be deleted
+    - Price may change
+    - Cart shows historical data
+    - Order preserves cart state
+end note
+
+@enduml

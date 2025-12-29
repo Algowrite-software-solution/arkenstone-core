@@ -1,0 +1,466 @@
+@startuml Checkout Process
+!theme plain
+title Checkout Process\n(Multi-Step Validation and Calculation Orchestration)
+
+' Participants
+actor Customer as customer #LightBlue
+participant "CheckoutController" as controller #E3F2FD
+participant "CheckoutService" as checkoutService #E3F2FD
+participant "CartService" as cartService #E3F2FD
+participant "ProductService" as productService #E3F2FD
+participant "StockService" as stockService #E3F2FD
+participant "AddressService" as addressService #E3F2FD
+participant "Shipping\nCalculator" as shippingCalc #FFF3E0
+database "Database" as db #E8F5E9
+participant "EventSystem" as eventSystem #FCE4EC
+
+' Main Flow
+customer -> controller: POST /api/v1/checkout/initiate\n{cart_token or user_id}
+activate controller
+
+controller -> checkoutService: initiateCheckout(authUser, request)
+activate checkoutService
+
+' ===== STEP 1: LOAD CART =====
+group Step 1: Load and Validate Cart
+    alt User logged in
+        checkoutService -> cartService: getCart(user_id: 42, cart_token: null)
+    else Guest user
+        checkoutService -> cartService: getCart(user_id: null, cart_token: "uuid-123")
+    end
+    activate cartService
+    
+    cartService -> db: SELECT * FROM carts WHERE (user_id = ? OR cart_token = ?) AND status = 'active'
+    db --> cartService: Cart {id: 5, status: 'active'}
+    
+    cartService -> db: SELECT * FROM cart_items WHERE cart_id = 5
+    db --> cartService: Cart Items [3 items]
+    
+    cartService --> checkoutService: Cart with items
+    deactivate cartService
+    
+    alt Cart empty
+        checkoutService --> controller: ValidationError
+        deactivate checkoutService
+        controller --> customer: ResponseProtocol::error(\n  null,\n  'Cart is empty',\n  422\n)
+        deactivate controller
+    end
+    
+    alt Cart expired
+        checkoutService --> controller: ValidationError
+        deactivate checkoutService
+        controller --> customer: ResponseProtocol::error(\n  null,\n  'Cart expired. Please refresh.',\n  422\n)
+        deactivate controller
+    end
+end
+
+' ===== STEP 2: VALIDATE CART ITEMS =====
+group Step 2: Item-by-Item Validation
+    checkoutService -> cartService: validateCart(cart)
+    activate cartService
+    
+    cartService -> cartService: validation_errors = []
+    
+    loop For each cart item
+        ' Validate product
+        cartService -> productService: getProduct(product_id)
+        activate productService
+        
+        productService -> db: SELECT * FROM products WHERE id = ?
+        db --> productService: Product {id, name, price, is_active, stock_quantity}
+        
+        alt Product not found or inactive
+            productService --> cartService: null
+            deactivate productService
+            
+            cartService -> cartService: Add error:\n{\n  item_id,\n  product_id,\n  error: 'Product unavailable',\n  action: 'remove_from_cart'\n}
+        else Product found
+            productService --> cartService: Product
+            deactivate productService
+            
+            ' Check price changes
+            alt Price changed significantly (>5%)
+                cartService -> cartService: Add warning:\n{\n  product_id,\n  old_price: cart_item.unit_price,\n  new_price: product.price,\n  message: 'Price updated'\n}
+                
+                cartService -> db: UPDATE cart_items\nSET unit_price = ?,\ntotal_price = ? * quantity\nWHERE id = ?
+                db --> cartService: Price updated
+            end
+            
+            ' Validate stock
+            cartService -> stockService: checkStock(product_id, quantity)
+            activate stockService
+            
+            stockService -> db: SELECT stock_quantity FROM products WHERE id = ?
+            db --> stockService: stock_quantity
+            
+            alt Stock insufficient
+                stockService --> cartService: {available: false, current_stock: X}
+                deactivate stockService
+                
+                cartService -> cartService: Add error:\n{\n  product_id,\n  requested_qty: cart_item.quantity,\n  available_qty: X,\n  error: 'Insufficient stock',\n  action: 'adjust_quantity'\n}
+            else Stock sufficient
+                stockService --> cartService: {available: true}
+                deactivate stockService
+            end
+            
+            ' Check product status
+            alt Product out of stock (stock = 0)
+                cartService -> cartService: Add error:\n{\n  product_id,\n  error: 'Out of stock',\n  action: 'remove_from_cart'\n}
+            end
+        end
+    end
+    
+    alt Has validation errors
+        cartService --> checkoutService: ValidationResult\n{valid: false, errors: [...], warnings: [...]}
+        deactivate cartService
+        
+        checkoutService --> controller: Validation failed
+        deactivate checkoutService
+        
+        controller --> customer: ResponseProtocol::error(\n  {errors, warnings, cart},\n  'Please review cart before checkout',\n  422\n)
+        deactivate controller
+    else Validation passed
+        cartService --> checkoutService: ValidationResult {valid: true, warnings: [...]}
+        deactivate cartService
+    end
+end
+
+' ===== STEP 3: ADDRESS COLLECTION =====
+group Step 3: Address Management
+    note over checkoutService
+        **Address Sources:**
+        1. Logged users: Saved addresses from database
+        2. Guest users: Must provide full addresses
+        3. Same as shipping: Can reuse shipping for billing
+    end note
+    
+    alt User logged in
+        checkoutService -> addressService: getAddresses(user_id: 42)
+        activate addressService
+        
+        addressService -> db: SELECT * FROM user_addresses\nWHERE user_id = 42\nORDER BY is_default DESC, id DESC
+        db --> addressService: Saved Addresses:\n[\n  {id: 1, type: 'home', is_default: true, ...},\n  {id: 2, type: 'office', is_default: false, ...}\n]
+        
+        addressService --> checkoutService: User Addresses [2 addresses]
+        deactivate addressService
+        
+        checkoutService --> controller: CheckoutData\n{cart, saved_addresses, validation_passed: true}
+        deactivate checkoutService
+        
+        controller --> customer: ResponseProtocol::success(\n  {cart, saved_addresses, requires_address_selection: true}\n)
+        deactivate controller
+        
+        note over customer
+            **User Flow:**
+            1. Select saved shipping address OR enter new
+            2. Select billing address OR "same as shipping"
+            3. Customer submits address selection
+        end note
+        
+        customer -> controller: POST /api/v1/checkout/validate-address\n{\n  shipping_address_id: 1,\n  billing_same_as_shipping: true\n}
+        activate controller
+        
+    else Guest user
+        checkoutService --> controller: CheckoutData\n{cart, requires_address_form: true}
+        deactivate checkoutService
+        
+        controller --> customer: ResponseProtocol::success(\n  {cart, requires_address_form: true}\n)
+        deactivate controller
+        
+        note over customer
+            **Guest Flow:**
+            Must fill address forms:
+            - Shipping address (required)
+            - Billing address (or same as shipping)
+        end note
+        
+        customer -> controller: POST /api/v1/checkout/validate-address\n{\n  shipping_address: {full_name, phone, email, ...},\n  billing_address: {...}\n}
+        activate controller
+    end
+    
+    controller -> checkoutService: validateAddress(addresses)
+    activate checkoutService
+    
+    checkoutService -> addressService: validateAddress(shipping_address)
+    activate addressService
+    addressService -> addressService: Validate:\n- Required fields\n- Phone format\n- Email format\n- Postal code format\n- Country code
+    
+    alt Address invalid
+        addressService --> checkoutService: ValidationErrors [...]
+        deactivate addressService
+        
+        checkoutService --> controller: Address validation failed
+        deactivate checkoutService
+        
+        controller --> customer: ResponseProtocol::error(\n  validation_errors,\n  'Invalid address details',\n  422\n)
+        deactivate controller
+    else Address valid
+        addressService --> checkoutService: Address validated
+        deactivate addressService
+    end
+end
+
+' ===== STEP 4: SHIPPING CALCULATION =====
+group Step 4: Shipping Method Selection and Calculation
+    customer -> controller: POST /api/v1/checkout/calculate-shipping\n{\n  shipping_address: {...},\n  shipping_method: 'standard'\n}
+    activate controller
+    
+    controller -> checkoutService: calculateShipping(shipping_address, cart)
+    activate checkoutService
+    
+    checkoutService -> shippingCalc: calculateShippingCost(\n  address,\n  cart_weight,\n  cart_dimensions\n)
+    activate shippingCalc
+    
+    shippingCalc -> shippingCalc: Determine shipping methods:\n- Standard (5-7 days): $10\n- Express (2-3 days): $25\n- Overnight: $50
+    
+    note right of shippingCalc
+        **Shipping Calculation Factors:**
+        - Destination (city, state, country)
+        - Total weight of items
+        - Package dimensions
+        - Shipping method selected
+        - Promotions (free shipping thresholds)
+        
+        Example:
+        If total > $100 → Free standard shipping
+    end note
+    
+    shippingCalc --> checkoutService: Shipping Options:\n[\n  {method: 'standard', cost: 10.00, days: '5-7'},\n  {method: 'express', cost: 25.00, days: '2-3'},\n  {method: 'overnight', cost: 50.00, days: '1'}\n]
+    deactivate shippingCalc
+    
+    checkoutService --> controller: Shipping options
+    deactivate checkoutService
+    
+    controller --> customer: ResponseProtocol::success(\n  {shipping_options, selected: 'standard'}\n)
+    deactivate controller
+end
+
+' ===== STEP 5: ORDER SUMMARY CALCULATION =====
+group Step 5: Calculate Final Totals
+    customer -> controller: POST /api/v1/checkout/calculate-totals\n{\n  shipping_method: 'standard',\n  coupon_code: 'SUMMER10'\n}
+    activate controller
+    
+    controller -> checkoutService: calculateTotals(cart, shipping, coupon)
+    activate checkoutService
+    
+    ' Calculate subtotal
+    checkoutService -> cartService: calculateSubtotal(cart)
+    activate cartService
+    cartService -> db: SELECT SUM(total_price) FROM cart_items WHERE cart_id = ?
+    db --> cartService: subtotal: 150.00
+    cartService --> checkoutService: subtotal: 150.00
+    deactivate cartService
+    
+    ' Apply coupon/discount
+    alt coupon_code provided
+        checkoutService -> db: SELECT * FROM coupons\nWHERE code = 'SUMMER10'\nAND is_active = 1\nAND valid_from <= NOW()\nAND valid_until >= NOW()
+        
+        alt Coupon valid
+            db --> checkoutService: Coupon\n{type: 'percentage', value: 10, max_discount: 50}
+            
+            checkoutService -> checkoutService: Calculate discount:\nsubtotal * 0.10 = 15.00\n(within max_discount: 50)
+        else Coupon invalid/expired
+            db --> checkoutService: null
+            checkoutService -> checkoutService: Add warning: 'Invalid coupon code'
+        end
+    end
+    
+    ' Calculate tax (based on shipping address)
+    checkoutService -> checkoutService: Calculate tax:\ntax_rate = getTaxRate(shipping_address.state)\ntax_amount = (subtotal - discount) * tax_rate\nExample: 135.00 * 0.08 = 10.80
+    
+    ' Add shipping
+    checkoutService -> checkoutService: shipping_cost = 10.00\n(from selected method)
+    
+    ' Calculate grand total
+    checkoutService -> checkoutService: Calculate grand_total:\nsubtotal: 150.00\n- discount: -15.00\n+ tax: +10.80\n+ shipping: +10.00\n= grand_total: 155.80
+    
+    note right of checkoutService
+        **Order Summary:**
+        {
+          "subtotal": 150.00,
+          "discount": {
+            "coupon_code": "SUMMER10",
+            "amount": 15.00
+          },
+          "tax": {
+            "rate": 0.08,
+            "amount": 10.80
+          },
+          "shipping": {
+            "method": "standard",
+            "cost": 10.00
+          },
+          "grand_total": 155.80,
+          "currency": "USD"
+        }
+    end note
+    
+    checkoutService --> controller: Order Summary
+    deactivate checkoutService
+    
+    controller --> customer: ResponseProtocol::success(\n  {order_summary, breakdown}\n)
+    deactivate controller
+end
+
+' ===== STEP 6: CREATE CHECKOUT SESSION =====
+group Step 6: Finalize Checkout Session
+    customer -> controller: POST /api/v1/checkout/create-session\n{\n  shipping_address: {...},\n  billing_address: {...},\n  shipping_method: 'standard',\n  payment_method: 'card',\n  coupon_code: 'SUMMER10'\n}
+    activate controller
+    
+    controller -> checkoutService: createCheckoutSession(checkoutData)
+    activate checkoutService
+    
+    ' Generate checkout token
+    checkoutService -> checkoutService: Generate checkout token:\ntoken = Str::uuid()\nexpires_at = now()->addMinutes(15)
+    
+    note right of checkoutService
+        **Checkout Session Structure:**
+        {
+          "token": "chk_uuid-1234-5678",
+          "cart_id": 5,
+          "user_id": 42,
+          "shipping_address": {...},
+          "billing_address": {...},
+          "shipping_method": {
+            "method": "standard",
+            "cost": 10.00
+          },
+          "payment_method": "card",
+          "totals": {
+            "subtotal": 150.00,
+            "discount": 15.00,
+            "tax": 10.80,
+            "shipping": 10.00,
+            "grand_total": 155.80
+          },
+          "expires_at": "2025-01-01 10:30:00"
+        }
+    end note
+    
+    ' Store checkout session
+    checkoutService -> db: INSERT INTO checkout_sessions\n(\n  token,\n  cart_id,\n  user_id,\n  shipping_address,\n  billing_address,\n  shipping_method,\n  payment_method,\n  totals,\n  expires_at\n)
+    db --> checkoutService: checkout_session.id = 10
+    
+    ' Update cart with checkout token
+    checkoutService -> db: UPDATE carts\nSET checkout_token = 'chk_uuid-1234-5678'\nWHERE id = 5
+    
+    ' Soft reserve stock (temporary)
+    checkoutService -> stockService: softReserveStock(cart_items, duration: 15 minutes)
+    activate stockService
+    note right of stockService
+        **Soft Reservation:**
+        - Temporarily reduces available stock
+        - Not committed (no database update)
+        - Cache-based reservation
+        - Auto-expires after 15 minutes
+        - Prevents overselling during checkout
+    end note
+    stockService --> checkoutService: Stock soft-reserved
+    deactivate stockService
+    
+    ' Dispatch event
+    checkoutService -> eventSystem: dispatch('checkout.initiated',\n{cart, checkout_session})
+    activate eventSystem
+    note over eventSystem
+        **Event Listeners:**
+        - Analytics tracking
+        - Abandoned cart timer start
+        - Admin notification (VIP customers)
+    end note
+    deactivate eventSystem
+    
+    checkoutService --> controller: CheckoutSession {token, expires_at}
+    deactivate checkoutService
+    
+    controller --> customer: ResponseProtocol::success(\n  {\n    checkout_token: 'chk_uuid-1234-5678',\n    expires_at: '2025-01-01 10:30:00',\n    order_summary: {...},\n    next_step: '/api/v1/orders' // Place order endpoint\n  },\n  'Checkout session created. Complete order within 15 minutes.'\n)
+    deactivate controller
+    
+    note over customer
+        **Next Step:**
+        Customer proceeds to payment:
+        POST /api/v1/orders {checkout_token}
+        
+        **Session Management:**
+        - 15 minute expiration
+        - Token invalidated after order creation
+        - Can restart checkout if expired
+    end note
+end
+
+' Notes
+note over checkoutService, cartService
+    **Checkout Validation Pipeline:**
+    
+    ✓ Step 1: Cart Validation
+      - Cart not empty
+      - Cart not expired
+      - User authorization
+    
+    ✓ Step 2: Item Validation
+      - Products active and available
+      - Prices current
+      - Stock sufficient
+      - No deleted products
+    
+    ✓ Step 3: Address Validation
+      - Required fields present
+      - Format validation (phone, email, postal)
+      - Country/region supported
+    
+    ✓ Step 4: Shipping Calculation
+      - Valid shipping address
+      - Calculate weight/dimensions
+      - Determine available methods
+      - Calculate costs
+    
+    ✓ Step 5: Totals Calculation
+      - Subtotal from cart
+      - Apply discounts/coupons
+      - Calculate tax (location-based)
+      - Add shipping cost
+      - Compute grand total
+    
+    ✓ Step 6: Session Creation
+      - Generate unique token
+      - Store complete session data
+      - Set expiration (15 min)
+      - Soft reserve stock
+      - Dispatch events
+end note
+
+note over customer, controller
+    **Multi-Step Checkout Flow:**
+    
+    1️⃣ **Initiate Checkout**
+       → Load cart, basic validation
+       → Return cart summary + address requirements
+    
+    2️⃣ **Provide Addresses**
+       → Customer enters/selects addresses
+       → Validate address format and fields
+    
+    3️⃣ **Select Shipping**
+       → Calculate available shipping methods
+       → Customer selects preferred method
+       → Display costs and delivery times
+    
+    4️⃣ **Apply Discounts**
+       → Customer enters coupon code (optional)
+       → Validate coupon and calculate discount
+    
+    5️⃣ **Review Order Summary**
+       → Display complete breakdown
+       → Show all costs (subtotal, tax, shipping, discount)
+       → Confirm grand total
+    
+    6️⃣ **Create Session**
+       → Generate checkout token
+       → Soft reserve stock (15 min)
+       → Ready for order placement
+    
+    7️⃣ **Place Order** (separate flow)
+       → POST /api/v1/orders {checkout_token}
+       → See Order Placement diagram
+end note
+
+@enduml

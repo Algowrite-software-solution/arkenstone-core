@@ -1,0 +1,302 @@
+@startuml Payment Processing with Webhook Handling
+!theme plain
+title Payment Processing with Webhook Handling\n(Async External Integration with Adapter Pattern)
+
+' Participants
+actor Customer as customer #LightBlue
+participant "OrderController" as controller #E3F2FD
+participant "OrderService" as orderService #E3F2FD
+participant "PaymentService" as paymentService #E3F2FD
+participant "GatewayResolver" as resolver #FFF3E0
+participant "PaymentAdapter\n(Stripe)" as adapter #FFF3E0
+participant "Payment Gateway\n(Stripe API)" as gateway #FFEBEE
+database "Database" as db #E8F5E9
+participant "PaymentWebhook\nController" as webhookController #E3F2FD
+participant "EventSystem" as eventSystem #FCE4EC
+participant "EmailService" as emailService #FCE4EC
+
+' ===== PHASE 1: PAYMENT INITIATION =====
+group Phase 1: Payment Initiation (Synchronous)
+    customer -> controller: POST /api/v1/orders\n{checkout_token, payment_method: 'card'}
+    activate controller
+    
+    controller -> orderService: createOrder(checkoutSession)
+    activate orderService
+    
+    note over orderService
+        **Order creation logic**
+        - Validate checkout session
+        - Lock stock (see Order Placement diagram)
+        - Create order with status: 'pending_payment'
+    end note
+    
+    orderService -> paymentService: initiatePayment(order)
+    activate paymentService
+    
+    paymentService -> resolver: resolveAdapter('stripe')
+    activate resolver
+    note right of resolver
+        **Gateway Resolution**
+        Based on config:
+        - payment.default_gateway = 'stripe'
+        - payment.gateways.stripe.adapter = StripeAdapter::class
+    end note
+    resolver --> paymentService: StripeAdapter instance
+    deactivate resolver
+    
+    paymentService -> db: INSERT INTO payments\n(order_id, method: 'card', status: 'initiated', amount, currency)
+    db --> paymentService: payment.id = 1
+    
+    paymentService -> adapter: createPayment(paymentData)
+    activate adapter
+    note right of adapter
+        **Payment Data Structure:**
+        {
+            "order_id": 123,
+            "amount": 15000, // cents
+            "currency": "usd",
+            "success_url": "https://app.com/orders/123",
+            "cancel_url": "https://app.com/checkout",
+            "metadata": {
+                "order_number": "ORD-20250101-001"
+            }
+        }
+    end note
+    
+    adapter -> gateway: POST /v1/checkout/sessions\n{amount, currency, success_url, cancel_url}
+    activate gateway
+    gateway --> adapter: 201 Created\n{id: "cs_123xyz", url: "https://checkout.stripe.com/..."}
+    deactivate gateway
+    
+    adapter --> paymentService: PaymentResponse\n{success: true, payment_id: "cs_123xyz", redirect_url: "..."}
+    deactivate adapter
+    
+    paymentService -> db: UPDATE payments\nSET gateway_payment_id = 'cs_123xyz',\nredirect_url = '...',\ngateway_response = {...}
+    db --> paymentService: Updated
+    
+    paymentService --> orderService: Payment {id: 1, redirect_url: "..."}
+    deactivate paymentService
+    
+    orderService --> controller: Order {order_number: "ORD-20250101-001", redirect_url: "..."}
+    deactivate orderService
+    
+    controller --> customer: ResponseProtocol::success(\n  {order, redirect_url},\n  'Order created, complete payment'\n)
+    deactivate controller
+    
+    customer -> gateway: [Browser Redirect]\nGET https://checkout.stripe.com/...
+    activate gateway
+    note over customer, gateway
+        **Customer on Stripe Checkout Page**
+        User enters card details on Stripe's hosted page
+    end note
+end
+
+' ===== PHASE 2: CUSTOMER PAYMENT =====
+group Phase 2: Customer Payment (On Gateway)
+    customer -> gateway: Submit card details
+    gateway -> gateway: Process payment with card network
+    note right of gateway
+        Stripe communicates with:
+        - Visa/Mastercard networks
+        - Bank authorization
+        - Fraud checks
+    end note
+    
+    alt Payment Successful
+        gateway --> customer: Payment confirmed\n[Redirect to success_url]
+    else Payment Failed
+        gateway --> customer: Payment failed\n[Show error, allow retry]
+    end
+    deactivate gateway
+end
+
+' ===== PHASE 3: WEBHOOK CALLBACK =====
+group Phase 3: Webhook Callback (Asynchronous - Separate HTTP Request)
+    note over gateway, webhookController
+        **⏱ Time Gap: Typically 1-5 seconds after payment**
+        This is a NEW HTTP request from Stripe to our server
+    end note
+    
+    gateway ->> webhookController: POST /api/webhooks/payment/stripe\nStripe-Signature: t=...,v1=...\n{\n  "type": "checkout.session.completed",\n  "data": {"object": {"id": "cs_123xyz", ...}}\n}
+    activate webhookController
+    
+    webhookController -> paymentService: processWebhook('stripe', request)
+    activate paymentService
+    
+    ' Signature Verification
+    paymentService -> adapter: verifyWebhookSignature(request)
+    activate adapter
+    adapter -> adapter: Calculate HMAC-SHA256\nusing webhook secret
+    note right of adapter
+        **Signature Verification:**
+        - Extract timestamp and signature from header
+        - Rebuild signed payload: timestamp + raw body
+        - Calculate HMAC-SHA256 with secret key
+        - Compare with provided signature
+        
+        **Security Critical:** Prevents malicious webhooks
+    end note
+    
+    alt Signature Valid
+        adapter --> paymentService: true
+        deactivate adapter
+        
+        paymentService -> adapter: handleWebhook(request)
+        activate adapter
+        adapter -> adapter: Parse webhook payload
+        adapter --> paymentService: WebhookResponse\n{event_type: 'payment.succeeded',\npayment_id: 'cs_123xyz',\nstatus: 'completed',\namount: 15000}
+        deactivate adapter
+        
+        paymentService -> db: SELECT * FROM payments\nWHERE gateway_payment_id = 'cs_123xyz'
+        db --> paymentService: Payment {id: 1, order_id: 123}
+        
+        alt Event = 'payment.succeeded'
+            paymentService -> db: BEGIN TRANSACTION
+            activate db
+            
+            paymentService -> db: UPDATE payments\nSET status = 'paid',\npaid_at = NOW(),\ngateway_response = {...}
+            
+            paymentService -> db: UPDATE orders\nSET payment_status = 'paid',\nstatus = 'confirmed',\nconfirmed_at = NOW()\nWHERE id = 123
+            
+            paymentService -> db: INSERT INTO order_status_history\n(order_id, from_status, to_status, changed_by_type: 'system')
+            
+            paymentService -> db: COMMIT
+            deactivate db
+            
+            paymentService -> eventSystem: dispatch('payment.completed',\n  payment, order)
+            activate eventSystem
+            note over eventSystem
+                **Event Listeners:**
+                - Send order confirmation email
+                - Notify admin dashboard
+                - Trigger analytics event
+                - Update customer notification
+            end note
+            eventSystem ->> emailService: Send order confirmation
+            deactivate eventSystem
+            
+            paymentService --> webhookController: WebhookResponse {status: 'processed'}
+            
+        else Event = 'payment.failed'
+            paymentService -> db: BEGIN TRANSACTION
+            activate db
+            
+            paymentService -> db: UPDATE payments\nSET status = 'failed',\nfailed_at = NOW(),\nfailed_reason = '...'
+            
+            paymentService -> db: UPDATE orders\nSET payment_status = 'failed',\nstatus = 'cancelled'
+            
+            paymentService -> db: COMMIT
+            deactivate db
+            
+            paymentService -> orderService: releaseStock(order)
+            note right
+                Restore product quantities
+                since order failed
+            end note
+            
+            paymentService -> eventSystem: dispatch('payment.failed',\n  payment, reason)
+            activate eventSystem
+            eventSystem ->> emailService: Send payment failed notification
+            deactivate eventSystem
+            
+            paymentService --> webhookController: WebhookResponse {status: 'processed'}
+        end
+        
+        webhookController --> gateway: HTTP 200 OK\n{"received": true}
+        note right of webhookController
+            **Must return 200 immediately**
+            Stripe retries if no 200 received
+        end note
+        deactivate paymentService
+        deactivate webhookController
+        
+    else Signature Invalid
+        adapter --> paymentService: false
+        deactivate adapter
+        
+        paymentService -> paymentService: Log security warning
+        note right of paymentService
+            **Security Alert:**
+            Potential malicious webhook attempt
+            Log IP, payload, timestamp
+        end note
+        
+        paymentService --> webhookController: Unauthorized
+        deactivate paymentService
+        
+        webhookController --> gateway: HTTP 401 Unauthorized
+        deactivate webhookController
+    end
+end
+
+' ===== PHASE 4: CUSTOMER RETURN =====
+group Phase 4: Customer Return to App
+    note over customer
+        Customer clicks "Return to merchant"
+        or is auto-redirected
+    end note
+    
+    customer -> controller: GET /orders/ORD-20250101-001
+    activate controller
+    
+    controller -> orderService: getOrder('ORD-20250101-001')
+    activate orderService
+    
+    orderService -> db: SELECT * FROM orders WHERE order_number = ?
+    db --> orderService: Order {status: 'confirmed', payment_status: 'paid'}
+    
+    orderService --> controller: Order
+    deactivate orderService
+    
+    controller --> customer: Order Confirmation Page\n✓ Payment successful\n✓ Order confirmed
+    deactivate controller
+end
+
+' ===== ALTERNATIVE FLOWS =====
+group Alternative: COD Payment (No Gateway)
+    note over customer, controller
+        If payment_method = 'cod', skip gateway entirely
+    end note
+    
+    customer -> controller: POST /api/v1/orders {payment_method: 'cod'}
+    controller -> orderService: createOrder(checkoutSession)
+    orderService -> paymentService: initiatePayment(order)
+    
+    paymentService -> db: INSERT INTO payments\n(method: 'cod', status: 'cod_pending')
+    
+    paymentService -> db: UPDATE orders\nSET status = 'confirmed',\npayment_status = 'cod_pending'
+    
+    paymentService -> eventSystem: dispatch('order.confirmed', order)
+    
+    paymentService --> orderService: Payment {method: 'cod', no redirect}
+    orderService --> controller: Order {status: 'confirmed'}
+    controller --> customer: Order confirmed\nPay on delivery
+end
+
+' Notes
+note over gateway, webhookController
+    **Webhook Retry Logic:**
+    Stripe automatically retries webhooks if:
+    - No response received within 30 seconds
+    - Non-200 status code returned
+    
+    Retry schedule: immediately, 1h, 3h, 6h, 12h, 24h
+    
+    **Idempotency:** Our webhook handler must handle duplicate events
+    Check payment status before processing to prevent double-updates
+end note
+
+note over paymentService, adapter
+    **Adapter Pattern Benefits:**
+    - Switch payment gateways without changing business logic
+    - Easy to add new gateways (PayPal, Razorpay, etc.)
+    - Centralized gateway configuration
+    - Consistent interface for all payment methods
+    
+    **To add new gateway:**
+    1. Implement PaymentAdapterInterface
+    2. Add config: payment.gateways.paypal.adapter = PayPalAdapter::class
+    3. No changes to PaymentService code
+end note
+
+@enduml
