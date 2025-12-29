@@ -23,7 +23,7 @@ class StoreVariationOptionRequest extends FormRequest
     {
         return [
             'variant_id' => ['required', 'integer', 'exists:variants,id'],
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['required','unique:variation_options,name', 'string', 'max:255'],
             'meta' => ['nullable', 'array'],
         ];
     }
@@ -39,6 +39,7 @@ class StoreVariationOptionRequest extends FormRequest
             'variant_id.required' => 'Variant is required.',
             'variant_id.exists' => 'The selected variant does not exist.',
             'name.required' => 'Option name is required.',
+            'name.unique' => 'Option name must be unique.',
         ];
     }
 }

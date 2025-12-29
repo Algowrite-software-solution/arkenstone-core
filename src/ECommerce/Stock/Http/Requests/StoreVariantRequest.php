@@ -22,7 +22,7 @@ class StoreVariantRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['required','unique:variants,name', 'string', 'max:255'],
         ];
     }
 
@@ -35,6 +35,7 @@ class StoreVariantRequest extends FormRequest
     {
         return [
             'name.required' => 'Variant name is required.',
+            'name.unique' => 'Variant name must be unique.',
         ];
     }
 }
