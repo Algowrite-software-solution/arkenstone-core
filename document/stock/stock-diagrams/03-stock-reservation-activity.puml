@@ -1,0 +1,95 @@
+@startuml Stock Reservation Activity Diagram
+!theme plain
+
+|Customer|
+start
+:Browse product;
+:View product details;
+
+|System|
+:Check stock availability\n(read-only query);
+
+note right
+  **Availability Check**
+  available = quantity_on_hand - 
+  SUM(reservations.quantity 
+      WHERE status IN 
+      ['pending', 'checking_out', 'committed'])
+end note
+
+if (Stock available?) then (yes)
+  |Customer|
+  :Click "Add to Cart";
+  
+  |StockReservationService|
+  :Create reservation\nstatus: 'pending'\nexpires_at: now + 10 minutes;
+  
+  if (Can create reservation?) then (yes)
+    :Increment stock.quantity_reserved;
+    :Return reservation_id;
+    
+    |Customer|
+    :Continue shopping\nor\nProceed to checkout;
+    
+    if (Proceed to checkout?) then (yes)
+      |StockReservationService|
+      :Update reservation\nstatus: 'checking_out'\nextend expires_at + 5 min;
+      
+      |Customer|
+      :Fill shipping info;
+      :Select payment method;
+      :Submit payment;
+      
+      |PaymentGateway|
+      if (Payment successful?) then (yes)
+        |StockReservationService|
+        :Update reservation\nstatus: 'committed'\nremove expiry;
+        
+        |OrderService|
+        :Create order record;
+        :Link reservation to order;
+        
+        |FulfillmentService|
+        :Prepare shipment;
+        
+        |StockReservationService|
+        :Update reservation\nstatus: 'fulfilled';
+        :Decrement stock.quantity_on_hand;
+        :Decrement stock.quantity_reserved;
+        
+        |Customer|
+        :Receive order confirmation;
+        stop
+        
+      else (failed)
+        |StockReservationService|
+        :Update reservation\nstatus: 'released';
+        :Decrement stock.quantity_reserved;
+        
+        |Customer|
+        :Show payment error;
+        stop
+      endif
+      
+    else (abandoned cart)
+      |BackgroundJob|
+      :Wait for expiration (10 min);
+      :Auto-release expired reservations;
+      :Update status: 'released';
+      :Decrement stock.quantity_reserved;
+      stop
+    endif
+    
+  else (insufficient stock)
+    |System|
+    :Show "Out of stock" error;
+    stop
+  endif
+  
+else (no)
+  |System|
+  :Show "Out of stock";
+  stop
+endif
+
+@enduml

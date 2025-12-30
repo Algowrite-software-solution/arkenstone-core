@@ -1,0 +1,125 @@
+@startuml Release Reservation Sequence Diagram
+!theme plain
+autonumber
+
+actor "Customer" as customer
+participant "CartController" as cart_ctrl
+participant "CartService" as cart_svc
+participant "StockReservationService" as reserve_svc
+participant "Stock" as stock_model
+participant "StockReservation" as reservation_model
+participant "Event" as event
+database "Database" as db
+
+== Remove Item from Cart ==
+customer -> cart_ctrl: DELETE /api/cart/items/{item_id}
+activate cart_ctrl
+
+cart_ctrl -> cart_svc: removeFromCart(item_id)
+activate cart_svc
+
+cart_svc -> cart_svc: get cart item with reservation_id
+cart_svc -> reserve_svc: release(reservation_id)
+activate reserve_svc
+
+reserve_svc -> reservation_model: find(reservation_id)
+activate reservation_model
+reservation_model -> db: SELECT * FROM stock_reservations WHERE id = ?
+db --> reservation_model: reservation record
+deactivate reservation_model
+
+alt reservation exists and is active
+    reserve_svc -> db: BEGIN TRANSACTION
+    
+    ' Update reservation status
+    reserve_svc -> reservation_model: update({status: 'released'})
+    activate reservation_model
+    reservation_model -> db: UPDATE stock_reservations\nSET status = 'released'\nWHERE id = ?
+    db --> reservation_model: success
+    deactivate reservation_model
+    
+    ' Decrement reserved quantity
+    reserve_svc -> stock_model: decrement('quantity_reserved', quantity)
+    activate stock_model
+    stock_model -> db: UPDATE stocks\nSET quantity_reserved = quantity_reserved - ?\nWHERE id = ?
+    db --> stock_model: success
+    deactivate stock_model
+    
+    reserve_svc -> db: COMMIT TRANSACTION
+    
+    ' Dispatch event
+    reserve_svc -> event: dispatch('stock.released', {\n  stock_id,\n  quantity,\n  reservation\n})
+    activate event
+    event --> reserve_svc: 
+    deactivate event
+    
+    reserve_svc --> cart_svc: true
+    deactivate reserve_svc
+    
+    cart_svc -> cart_svc: delete cart item
+    cart_svc --> cart_ctrl: success
+    deactivate cart_svc
+    
+    cart_ctrl --> customer: 200 OK + cart updated
+    deactivate cart_ctrl
+else reservation not found
+    reserve_svc --> cart_svc: error: reservation not found
+    deactivate reserve_svc
+    cart_svc --> cart_ctrl: warning: reservation already released
+    deactivate cart_svc
+    cart_ctrl --> customer: 200 OK (graceful handling)
+    deactivate cart_ctrl
+end
+
+== Update Cart Quantity (Reduce) ==
+customer -> cart_ctrl: PUT /api/cart/items/{item_id}\n{quantity: 2 -> 1}
+activate cart_ctrl
+
+cart_ctrl -> cart_svc: updateCartItem(item_id, new_quantity)
+activate cart_svc
+
+cart_svc -> cart_svc: calculate quantity difference\ndiff = old_qty - new_qty = 1
+
+alt quantity reduced
+    cart_svc -> reserve_svc: release(reservation_id, diff_quantity)
+    activate reserve_svc
+    
+    reserve_svc -> reservation_model: find(reservation_id)
+    activate reservation_model
+    reservation_model -> db: SELECT
+    db --> reservation_model: reservation
+    deactivate reservation_model
+    
+    reserve_svc -> db: BEGIN TRANSACTION
+    
+    ' Update reservation quantity
+    reserve_svc -> reservation_model: decrement('quantity', diff)
+    activate reservation_model
+    reservation_model -> db: UPDATE stock_reservations\nSET quantity = quantity - ?
+    db --> reservation_model: success
+    deactivate reservation_model
+    
+    ' Decrement reserved
+    reserve_svc -> stock_model: decrement('quantity_reserved', diff)
+    activate stock_model
+    stock_model -> db: UPDATE stocks\nSET quantity_reserved = quantity_reserved - ?
+    db --> stock_model: success
+    deactivate stock_model
+    
+    reserve_svc -> db: COMMIT TRANSACTION
+    
+    reserve_svc -> event: dispatch('stock.released', {partial: true})
+    activate event
+    event --> reserve_svc: 
+    deactivate event
+    
+    reserve_svc --> cart_svc: true
+    deactivate reserve_svc
+end
+
+cart_svc --> cart_ctrl: success + updated cart
+deactivate cart_svc
+cart_ctrl --> customer: 200 OK
+deactivate cart_ctrl
+
+@enduml

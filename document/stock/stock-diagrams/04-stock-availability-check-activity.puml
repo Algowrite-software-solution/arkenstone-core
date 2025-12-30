@@ -1,0 +1,46 @@
+@startuml Stock Availability Check Activity Diagram
+!theme plain
+start
+
+:Receive availability check request\n(stock_id, requested_quantity);
+
+:Query Stock model by stock_id;
+
+if (Stock exists?) then (yes)
+    :Get stock record with\nquantity_on_hand\nstatus;
+    
+    if (Stock status is 'active'?) then (yes)
+        if (Stock is NOT soft deleted?) then (yes)
+            :Calculate reserved quantity:\nreserved = SUM(reservations.quantity)\nWHERE status IN ['pending','checking_out','committed'];
+            
+            :Calculate available quantity:\navailable = quantity_on_hand - reserved;
+            
+            if (available >= requested_quantity?) then (yes)
+                :Return availability = TRUE;
+                :Include available quantity;
+                :Include stock details;
+                stop
+            else (no)
+                :Return availability = FALSE;
+                :Reason: Insufficient quantity;
+                :Include available quantity;
+                :Include requested quantity;
+                stop
+            endif
+        else (soft deleted)
+            :Return availability = FALSE;
+            :Reason: Stock is deleted;
+            stop
+        endif
+    else (no)
+        :Return availability = FALSE;
+        :Reason: Stock is inactive;
+        stop
+    endif
+else (no)
+    :Return error;
+    :Reason: Stock not found;
+    stop
+endif
+
+@enduml
