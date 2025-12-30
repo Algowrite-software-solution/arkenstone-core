@@ -22,12 +22,12 @@ class StoreProductRequest extends FormRequest
         $data = [];
 
         // Convert 'details' from JSON string to array (for form-data requests)
-        if ($this->has('details') && is_string($this->details)) {
-            $decoded = json_decode($this->details, true);
-            if (json_last_error() === JSON_ERROR_NONE) {
-                $data['details'] = $decoded;
-            }
-        }
+        // if ($this->has('details') && is_string($this->details)) {
+        //     $decoded = json_decode($this->details, true);
+        //     if (json_last_error() === JSON_ERROR_NONE) {
+        //         $data['details'] = $decoded;
+        //     }
+        // }
 
         // Convert 'is_active' from string to boolean
         if ($this->has('is_active')) {
@@ -96,7 +96,6 @@ class StoreProductRequest extends FormRequest
         return [
             'name.required' => 'Product name is required.',
             'minified_description.max' => 'Minified description must not exceed 500 characters.',
-            'details' => 'Invalid Detail format.',
             'price.min' => 'Product price must be greater than or equal to 0.',
             'discount_type.in' => 'Discount type must be either percentage or fixed_amount.',
             'discount_value.required_with' => 'Discount value is required when discount type is set.',
