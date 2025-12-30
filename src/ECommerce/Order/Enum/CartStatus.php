@@ -8,6 +8,7 @@ enum CartStatus: string
     case COMPLETED = 'completed';
     case MIGRATED = 'migrated';
     case EXPIRED = 'expired';
+    case ABANDONED = 'abandoned';
 
     public function label(): string
     {
@@ -16,6 +17,7 @@ enum CartStatus: string
             self::COMPLETED => 'Completed',
             self::MIGRATED => 'Migrated',
             self::EXPIRED => 'Expired',
+            self::ABANDONED => 'Abandoned',
         };
     }
 

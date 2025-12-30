@@ -15,20 +15,30 @@ class CartItem extends Model
         'cart_id',
         'product_id',
         'product_snapshot',
+        'product_sku',
+        'product_name',
         'quantity',
-        'price',
+        'unit_price',
+        'discount_type',
+        'discount_value',
         'discount_amount',
+        'tax_rate',
         'tax_amount',
-        'total',
+        'subtotal',
+        'total_price',
     ];
 
     protected $casts = [
         'product_snapshot' => 'array',
         'quantity' => 'integer',
-        'price' => 'decimal:2',
+        'unit_price' => 'decimal:2',
+        'discount_type' => 'string',
+        'discount_value' => 'decimal:2',
         'discount_amount' => 'decimal:2',
+        'tax_rate' => 'decimal:4',
         'tax_amount' => 'decimal:2',
-        'total' => 'decimal:2',
+        'subtotal' => 'decimal:2',
+        'total_price' => 'decimal:2',
     ];
 
     /**
@@ -94,7 +104,8 @@ class CartItem extends Model
      */
     public function calculateTotal(): void
     {
-        $this->total = ($this->price * $this->quantity) - $this->discount_amount + $this->tax_amount;
+        $this->subtotal = $this->unit_price * $this->quantity;
+        $this->total_price = $this->subtotal - $this->discount_amount + $this->tax_amount;
     }
 
     /**
@@ -141,7 +152,7 @@ class CartItem extends Model
      */
     public function getDisplayPriceAttribute(): float
     {
-        return $this->snapshot['price'] ?? $this->product?->price ?? $this->price;
+        return $this->snapshot['price'] ?? $this->product?->price ?? $this->unit_price;
     }
 
     /**

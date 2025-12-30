@@ -33,6 +33,7 @@ return new class extends Migration {
             // Gateway integration
             $table->string('gateway', 50)->nullable(); // stripe, paypal, razorpay
             $table->string('gateway_payment_id')->nullable();
+            $table->string('transaction_id')->nullable()->comment('Separate from gateway_payment_id');
             $table->json('gateway_response')->nullable();
 
             // URLs for payment flow
@@ -49,6 +50,7 @@ return new class extends Migration {
             // Timestamps
             $table->timestamp('paid_at')->nullable();
             $table->timestamp('failed_at')->nullable();
+            $table->timestamp('refunded_at')->nullable()->comment('When full refund completed');
 
             $table->timestamps();
 

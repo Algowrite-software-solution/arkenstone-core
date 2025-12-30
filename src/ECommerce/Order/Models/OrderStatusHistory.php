@@ -15,8 +15,8 @@ class OrderStatusHistory extends Model
         'order_id',
         'from_status',
         'to_status',
-        'reason',
-        'changed_by_id',
+        'note',
+        'changed_by',
         'changed_by_type',
         'metadata',
     ];
@@ -112,7 +112,7 @@ class OrderStatusHistory extends Model
     {
         return match ($this->changed_by_type) {
             self::CHANGED_BY_USER => "Customer",
-            self::CHANGED_BY_ADMIN => "Admin #{$this->changed_by_id}",
+            self::CHANGED_BY_ADMIN => "Admin #{$this->changed_by}",
             self::CHANGED_BY_SYSTEM => "System",
             self::CHANGED_BY_WEBHOOK => "Payment Gateway",
             default => "Unknown",

@@ -25,12 +25,13 @@ class Order extends Model
         'discount_amount',
         'shipping_cost',
         'tax_amount',
-        'total',
+        'grand_total',
         'currency',
         'coupon_code',
         'customer_email',
         'customer_phone',
         'customer_name',
+        'guest_email',
         'notes',
         'admin_notes',
         'ip_address',
@@ -41,7 +42,10 @@ class Order extends Model
         'delivered_at',
         'completed_at',
         'cancelled_at',
+        'cancelled_by',
+        'cancelled_by_type',
         'cancellation_reason',
+        'cancellation_note',
         'tracking_number',
         'carrier',
         'estimated_delivery',
@@ -54,7 +58,7 @@ class Order extends Model
         'discount_amount' => 'decimal:2',
         'shipping_cost' => 'decimal:2',
         'tax_amount' => 'decimal:2',
-        'total' => 'decimal:2',
+        'grand_total' => 'decimal:2',
         'confirmed_at' => 'datetime',
         'processing_at' => 'datetime',
         'shipped_at' => 'datetime',
@@ -321,6 +325,10 @@ class Order extends Model
         if (!$this->status->isCancellable()) {
             throw new \InvalidArgumentException("Order in status {$this->status->value} cannot be cancelled");
         }
+
+        $this->cancelled_by = $cancelledBy;
+        $this->cancelled_by_type = $cancelledByType;
+        $this->cancellation_note = $reason;
 
         $this->updateStatus(OrderStatus::CANCELLED, $reason, $cancelledBy, $cancelledByType);
     }

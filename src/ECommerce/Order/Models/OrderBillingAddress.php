@@ -12,17 +12,15 @@ class OrderBillingAddress extends Model
 
     protected $fillable = [
         'order_id',
-        'first_name',
-        'last_name',
-        'company',
-        'address_line1',
-        'address_line2',
+        'full_name',
+        'phone',
+        'email',
+        'address_line_1',
+        'address_line_2',
         'city',
         'state',
         'postal_code',
         'country',
-        'phone',
-        'email',
     ];
 
     /**
@@ -34,21 +32,13 @@ class OrderBillingAddress extends Model
     }
 
     /**
-     * Get full name
-     */
-    public function getFullNameAttribute(): string
-    {
-        return trim("{$this->first_name} {$this->last_name}");
-    }
-
-    /**
      * Get formatted address (single line)
      */
     public function getFormattedAddressAttribute(): string
     {
         $parts = array_filter([
-            $this->address_line1,
-            $this->address_line2,
+            $this->address_line_1,
+            $this->address_line_2,
             $this->city,
             $this->state,
             $this->postal_code,
@@ -65,15 +55,11 @@ class OrderBillingAddress extends Model
     {
         $lines = [];
 
-        if ($this->company) {
-            $lines[] = $this->company;
-        }
-
         $lines[] = $this->full_name;
-        $lines[] = $this->address_line1;
+        $lines[] = $this->address_line_1;
 
-        if ($this->address_line2) {
-            $lines[] = $this->address_line2;
+        if ($this->address_line_2) {
+            $lines[] = $this->address_line_2;
         }
 
         $lines[] = "{$this->city}, {$this->state} {$this->postal_code}";

@@ -14,8 +14,10 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('user_id')->nullable()->constrained()->onDelete('set null');
             $table->foreignId('cart_id')->nullable()->constrained()->onDelete('set null');
+            $table->foreignId('cancelled_by')->nullable()->comment('User ID who cancelled the order');
 
             $table->string('order_number', 50)->unique();
+            $table->string('guest_email')->nullable()->comment('Email for guest orders (when user_id is NULL)');
             $table->enum('status', [
                 'pending_payment',
                 'confirmed',
@@ -44,7 +46,7 @@ return new class extends Migration {
             $table->decimal('discount_amount', 10, 2)->default(0);
             $table->decimal('shipping_cost', 10, 2)->default(0);
             $table->decimal('tax_amount', 10, 2)->default(0);
-            $table->decimal('total', 10, 2);
+            $table->decimal('grand_total', 10, 2)->comment('Final total amount');
             $table->string('currency', 3)->default('usd');
 
             // Discount
@@ -77,7 +79,9 @@ return new class extends Migration {
             $table->timestamp('estimated_delivery')->nullable();
 
             // Cancellation
+            $table->enum('cancelled_by_type', ['customer', 'admin', 'system'])->nullable();
             $table->text('cancellation_reason')->nullable();
+            $table->text('cancellation_note')->nullable()->comment('Detailed admin note');
 
             $table->timestamps();
             $table->softDeletes();

@@ -13,30 +13,38 @@ class PaymentRefund extends Model
     protected $fillable = [
         'payment_id',
         'refund_number',
-        'amount',
+        'refund_amount',
         'currency',
         'reason',
         'status',
+        'refund_method',
         'gateway_refund_id',
         'gateway_response',
         'initiated_by_id',
         'initiated_by_type',
+        'processed_by',
+        'admin_note',
+        'initiated_at',
         'completed_at',
         'failed_at',
         'failed_reason',
+        'estimated_completion',
     ];
 
     protected $casts = [
-        'amount' => 'decimal:2',
+        'refund_amount' => 'decimal:2',
         'gateway_response' => 'array',
+        'initiated_at' => 'datetime',
         'completed_at' => 'datetime',
         'failed_at' => 'datetime',
+        'estimated_completion' => 'datetime',
     ];
 
     /**
      * Possible refund statuses
      */
     const STATUS_PENDING = 'pending';
+    const STATUS_PENDING_MANUAL = 'pending_manual';
     const STATUS_PROCESSING = 'processing';
     const STATUS_COMPLETED = 'completed';
     const STATUS_FAILED = 'failed';
@@ -175,6 +183,6 @@ class PaymentRefund extends Model
      */
     public function getFormattedAmountAttribute(): string
     {
-        return number_format($this->amount, 2) . ' ' . strtoupper($this->currency);
+        return number_format($this->refund_amount, 2) . ' ' . strtoupper($this->currency);
     }
 }

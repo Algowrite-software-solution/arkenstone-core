@@ -36,11 +36,11 @@ return new class extends Migration {
                 'refunded'
             ]);
 
-            $table->text('reason')->nullable();
+            $table->text('note')->nullable()->comment('Human-readable note about the change');
 
             // Who made the change
-            $table->unsignedBigInteger('changed_by_id')->nullable();
-            $table->string('changed_by_type', 20)->default('user'); // user, admin, system, webhook
+            $table->unsignedBigInteger('changed_by')->nullable()->comment('User ID who made the change');
+            $table->enum('changed_by_type', ['system', 'customer', 'admin'])->default('system');
 
             // Additional metadata
             $table->json('metadata')->nullable();

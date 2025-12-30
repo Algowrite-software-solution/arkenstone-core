@@ -14,20 +14,17 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('order_id')->constrained()->onDelete('cascade');
 
-            $table->string('first_name');
-            $table->string('last_name');
-            $table->string('company')->nullable();
-            $table->string('address_line1');
-            $table->string('address_line2')->nullable();
-            $table->string('city');
-            $table->string('state');
-            $table->string('postal_code', 20);
-            $table->string('country', 2);
+            $table->string('full_name')->comment('Full name for shipping');
             $table->string('phone', 20);
             $table->string('email')->nullable();
-
-            $table->timestamps();
-
+            $table->string('address_line_1');
+            $table->string('address_line_2')->nullable();
+            $table->string('city', 100);
+            $table->string('state', 100);
+            $table->string('postal_code', 20);
+            $table->string('country', 100)->comment('Full country name or ISO code');
+            $table->decimal('latitude', 10, 8)->nullable()->comment('For delivery tracking');
+            $table->decimal('longitude', 11, 8)->nullable()->comment('For delivery tracking');
             // Indexes
             $table->index('order_id');
             $table->index(['country', 'state']);

@@ -21,17 +21,15 @@ return new class extends Migration {
 
             // Discount fields
             $table->string('coupon_code', 50)->nullable();
-            $table->string('discount_type', 20)->nullable();
-            $table->decimal('discount_value', 10, 2)->nullable();
-            $table->decimal('discount_amount', 10, 2)->default(0);
+            $table->enum('discount_type', ['percentage', 'fixed', 'none'])->nullable();
+            $table->decimal('discount_value', 10, 2)->nullable()->comment('Percentage value or fixed amount');
+            $table->decimal('discount_amount', 10, 2)->default(0)->comment('Calculated discount amount');
 
             // Totals
-            $table->decimal('subtotal', 10, 2)->default(0);
+            $table->decimal('subtotal', 10, 2)->default(0)->comment('Sum of all items before discount/tax');
             $table->decimal('shipping_cost', 10, 2)->default(0);
-            $table->decimal('tax_amount', 10, 2)->default(0);
-            $table->decimal('total', 10, 2)->default(0);
-
-            $table->text('notes')->nullable();
+            $table->decimal('tax_amount', 10, 2)->default(0)->comment('Total tax amount');
+            $table->decimal('total', 10, 2)->default(0)->comment('Final total after all calculations');
 
             // Timestamps
             $table->timestamp('expires_at')->nullable();
