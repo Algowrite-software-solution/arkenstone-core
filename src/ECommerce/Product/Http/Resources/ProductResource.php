@@ -2,6 +2,7 @@
 
 namespace Arkenstone\Core\ECommerce\Product\Http\Resources;
 
+use Arkenstone\Core\ECommerce\Stock\Http\Resources\StockResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -32,6 +33,7 @@ class ProductResource extends JsonResource
             'brand' => new BrandResource($this->whenLoaded('brand')),
             'categories' => CategoryResource::collection($this->whenLoaded('categories')),
             'taxonomies' => TaxonomyResource::collection($this->whenLoaded('taxonomies')),
+            'stocks' => StockResource::collection($this->whenLoaded('stocks')),
             'images' => ProductImageResource::collection($this->whenLoaded('images')),
             'primary_image' => new ProductImageResource($this->whenLoaded('primaryImage')),
             'created_at' => $this->created_at?->toISOString(),

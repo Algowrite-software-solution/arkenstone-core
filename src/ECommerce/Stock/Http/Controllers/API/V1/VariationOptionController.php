@@ -16,6 +16,17 @@ class VariationOptionController extends Controller
     {
     }
 
+    public function index(): JsonResponse
+    {
+        $options = $this->optionService->getAllOptions();
+
+        return ResponseProtocol::success(
+            VariationOptionResource::collection($options),
+            'Variation options retrieved successfully',
+            200
+        );
+    }
+
     /**
      * Get all options for a specific variant.
      */

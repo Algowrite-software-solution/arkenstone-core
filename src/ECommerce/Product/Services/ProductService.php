@@ -27,7 +27,7 @@ class ProductService implements ProductServiceInterface
     * A whitelist of relations that are safe to be eager-loaded.
     * @var array
     */
-   protected array $allowedRelations = ['categories', 'brand', 'images', 'taxonomies', 'taxonomies.type'];
+   protected array $allowedRelations = ['categories', 'brand', 'images', 'taxonomies', 'taxonomies.type', 'stocks'];
    protected int $PER_PAGE = 100000;
 
    public function find(int $id, array $with = []): ?ProductContract
