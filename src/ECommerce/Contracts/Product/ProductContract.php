@@ -32,6 +32,11 @@ interface ProductContract
     public function images(): HasMany;
 
     /**
+     * Get the stocks for the product.
+     */
+    public function stocks(): HasMany;
+
+    /**
      * Scope a query to only include active products.
      * This is a great default filter to apply.
      */

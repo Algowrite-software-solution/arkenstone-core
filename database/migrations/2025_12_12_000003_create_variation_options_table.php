@@ -13,7 +13,7 @@ return new class extends Migration {
         Schema::create('variation_options', function (Blueprint $table) {
             $table->id();
             $table->foreignId('variant_id')->constrained('variants')->onDelete('cascade');
-            $table->string('name');
+            $table->string('name')->unique();
             $table->text('meta')->nullable();
             $table->timestamps();
 
