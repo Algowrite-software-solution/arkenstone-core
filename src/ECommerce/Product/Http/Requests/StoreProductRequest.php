@@ -22,12 +22,12 @@ class StoreProductRequest extends FormRequest
         $data = [];
 
         // Convert 'details' from JSON string to array (for form-data requests)
-        if ($this->has('details') && is_string($this->details)) {
-            $decoded = json_decode($this->details, true);
-            if (json_last_error() === JSON_ERROR_NONE) {
-                $data['details'] = $decoded;
-            }
-        }
+        // if ($this->has('details') && is_string($this->details)) {
+        //     $decoded = json_decode($this->details, true);
+        //     if (json_last_error() === JSON_ERROR_NONE) {
+        //         $data['details'] = $decoded;
+        //     }
+        // }
 
         // Convert 'is_active' from string to boolean
         if ($this->has('is_active')) {
@@ -52,11 +52,11 @@ class StoreProductRequest extends FormRequest
         $allowedMimes = $this->extractMimeExtensions($config['allowed_types'] ?? []);
 
         return [
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string', 'max:255', 'unique:products,name'],
             'slug' => ['sometimes', 'nullable', 'string', 'max:255', 'unique:products,slug'],
             'description' => ['sometimes', 'nullable', 'string'],
             'minified_description' => ['sometimes', 'nullable', 'string', 'max:500'],
-            'details' => ['sometimes',  'nullable', 'array'],
+            'details' => ['sometimes',  'nullable', 'string'],
             'price' => ['sometimes', 'nullable','numeric', 'min:0'],
             'discount_type' => ['sometimes', 'nullable', 'in:percentage,fixed_amount'],
             'discount_value' => ['sometimes', 'nullable', 'numeric', 'min:0', 'required_with:discount_type'],
@@ -96,7 +96,6 @@ class StoreProductRequest extends FormRequest
         return [
             'name.required' => 'Product name is required.',
             'minified_description.max' => 'Minified description must not exceed 500 characters.',
-            'details.array' => 'Details must be a valid array.',
             'price.min' => 'Product price must be greater than or equal to 0.',
             'discount_type.in' => 'Discount type must be either percentage or fixed_amount.',
             'discount_value.required_with' => 'Discount value is required when discount type is set.',
