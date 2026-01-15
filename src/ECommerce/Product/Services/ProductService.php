@@ -78,6 +78,10 @@ class ProductService implements ProductServiceInterface
             $product->categories()->attach($data['category_ids']);
          }
 
+         if (!empty($data['taxonomy_ids'])) {
+            $product->taxonomies()->attach($data['taxonomy_ids']);
+         }
+
          // Handle pre-uploaded images (existing behavior)
          if (!empty($data['images'])) {
             Log::info("Uploaded Images", [$data['images']]);
@@ -122,6 +126,10 @@ class ProductService implements ProductServiceInterface
 
          if (isset($data['category_ids'])) {
             $product->categories()->sync($data['category_ids']);
+         }
+
+         if (isset($data['taxonomy_ids'])) {
+            $product->taxonomies()->sync($data['taxonomy_ids']);
          }
 
          // Delete specified images
