@@ -198,6 +198,14 @@ class Product extends Model implements ProductContract
     }
 
     /**
+     * Stock related methods
+     */
+    public function stocks(): HasMany
+    {
+        return $this->hasMany(\Arkenstone\Core\ECommerce\Stock\Models\Stock::class);
+    }
+
+    /**
      * Create a new factory instance for the model.
      */
 

@@ -47,4 +47,11 @@ interface VariationOptionServiceInterface
      * @return Collection
      */
     public function getOptionsByVariant(int $variantId): Collection;
+
+    /**
+     * Get all variation options.
+     *
+     * @return Collection
+     */
+    public function getAllOptions(): Collection;
 }
