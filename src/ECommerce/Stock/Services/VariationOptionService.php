@@ -80,4 +80,12 @@ class VariationOptionService implements VariationOptionServiceInterface
             ->with('variant')
             ->get();
     }
+
+    /**
+     * Get all variation options.
+     */
+    public function getAllOptions(): Collection
+    {
+        return VariationOption::with('variant')->get();
+    }
 }

@@ -44,6 +44,7 @@ Route::prefix('api/v1')->middleware('api')->group(function () {
     // Variation Options
     Route::get('variants/{variantId}/options', [V1\VariationOptionController::class, 'byVariant'])->name('variants.options');
     Route::post('variation-options', [V1\VariationOptionController::class, 'store'])->name('variation-options.store');
+    Route::get('variation-options', [V1\VariationOptionController::class, 'index'])->name('variation-options.index');
     Route::get('variation-options/{id}', [V1\VariationOptionController::class, 'show'])->name('variation-options.show');
     Route::put('variation-options/{id}', [V1\VariationOptionController::class, 'update'])->name('variation-options.update');
     Route::delete('variation-options/{id}', [V1\VariationOptionController::class, 'destroy'])->name('variation-options.destroy');
