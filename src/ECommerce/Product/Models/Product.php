@@ -138,6 +138,13 @@ class Product extends Model implements ProductContract
             $q->whereIn('categories.id', $ids);
         });
     }
+    
+    public function scopeByTaxonomies(Builder $query, array $ids): Builder
+    {
+        return $query->whereHas('taxonomies', function (Builder $q) use ($ids) {
+            $q->whereIn('taxonomies.id', $ids);
+        });
+    }
 
     public function scopeByAllCategories(Builder $query, array $ids): Builder
     {
