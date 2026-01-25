@@ -12,6 +12,7 @@ use Arkenstone\Core\Helpers\ResponseProtocol;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Log;
 
 class ProductController extends Controller
 {
@@ -25,13 +26,22 @@ class ProductController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $filters = $request->only(['name', 'min_price', 'max_price', 'brand_id', 'category_ids', 'categories', 'is_active', 'per_page', 'brand', 'order_by', 'order', 'with']);
+        $filters = $request->only(['name', 'min_price', 'max_price', 'brand_id', 'category_ids', 'categories', 'taxonomy_ids', 'is_active', 'per_page', 'brand', 'order_by', 'order',  'with']);
 
         // Convert category_ids string to array if needed
         if (!empty($filters['category_ids']) && !is_array($filters['category_ids'])) {
             $filters['categories'] = explode(',', $filters['category_ids']);
         } elseif (!empty($filters['category_ids'])) {
             $filters['categories'] = $filters['category_ids'];
+        }
+
+        Log::info("updated filters", $filters);
+
+        // Convert taxonomy_ids string to array if needed
+        if (!empty($filters['taxonomy_ids']) && !is_array($filters['taxonomy_ids'])) {
+            $filters['taxonomies'] = explode(',', $filters['taxonomy_ids']);
+        } elseif (!empty($filters['taxonomy_ids'])) {
+            $filters['taxonomies'] = $filters['taxonomy_ids'];
         }
 
         $products = $this->productService->search($filters);
