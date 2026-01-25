@@ -159,6 +159,11 @@ class Product extends Model implements ProductContract
         return $query->where('brand_id', $id);
     }
 
+    public function scopeByBrands(Builder $query, array $ids): Builder
+    {
+        return $query->whereIn('brand_id', $ids);
+    }
+
 
     /**
      * |-----------------------------------------------------------------------------|
