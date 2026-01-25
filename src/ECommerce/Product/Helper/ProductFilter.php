@@ -115,6 +115,15 @@ class ProductFilter
     }
 
     /**
+     * Handles the 'taxonomies' filter.
+     * Maps to the scopeByTaxonomies() in the Product model.
+     */
+    protected function taxonomies(array $value): void
+    {
+        $this->query->byTaxonomies($value);
+    }
+
+    /**
      * Handles the 'all_categories' filter.
      * Maps to the scopeByAllCategories() in the Product model.
      */
