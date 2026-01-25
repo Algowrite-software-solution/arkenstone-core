@@ -140,6 +140,15 @@ class ProductFilter
     {
         $this->query->byBrand($value);
     }
+    /**
+     * Handles the 'brand' filter.
+     * Maps to the scopeByBrand() in the Product model.
+     */
+    protected function brands(array $value): void
+    {
+        $this->query->byBrands($value);
+    }
+
 
     /**
      * Handles the 'brand_id' filter.

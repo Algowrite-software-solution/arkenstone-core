@@ -26,7 +26,7 @@ class ProductController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $filters = $request->only(['name', 'min_price', 'max_price', 'brand_id', 'category_ids', 'categories', 'taxonomy_ids', 'is_active', 'per_page', 'brand', 'order_by', 'order']);
+        $filters = $request->only(['name', 'min_price', 'max_price', 'brand_id', 'category_ids', 'categories', 'taxonomy_ids', 'is_active', 'per_page', 'brand', 'brand_ids', 'order_by', 'order']);
 
         // Convert category_ids string to array if needed
         if (!empty($filters['category_ids']) && !is_array($filters['category_ids'])) {
@@ -35,13 +35,19 @@ class ProductController extends Controller
             $filters['categories'] = $filters['category_ids'];
         }
 
-        Log::info("updated filters", $filters);
 
         // Convert taxonomy_ids string to array if needed
         if (!empty($filters['taxonomy_ids']) && !is_array($filters['taxonomy_ids'])) {
             $filters['taxonomies'] = explode(',', $filters['taxonomy_ids']);
         } elseif (!empty($filters['taxonomy_ids'])) {
             $filters['taxonomies'] = $filters['taxonomy_ids'];
+        }
+
+
+        if (!empty($filters['brand_ids']) && !is_array($filters['brand_ids'])) {
+            $filters['brands'] = explode(',', $filters['brand_ids']);
+        } elseif (!empty($filters['brand_ids'])) {
+            $filters['brands'] = $filters['brand_ids'];
         }
 
         $products = $this->productService->search($filters);
