@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Log;
 
 class SupplierService implements SupplierServiceInterface
 {
+    protected int $PER_PAGE = APIDefaults::PER_PAGE;
+    protected string $ORDER = APIDefaults::ORDER;
     /**
      * Create a new supplier.
      */
@@ -92,7 +94,7 @@ class SupplierService implements SupplierServiceInterface
             $query->active();
         }
 
-        return $query->get();
+        return $query->orderBy('created_at', $filters['order'] ?? $this->ORDER)->get();
     }
 
     /**
