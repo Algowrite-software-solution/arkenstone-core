@@ -4,7 +4,6 @@ namespace Arkenstone\Core\ECommerce\Product\Services;
 
 use Arkenstone\Core\ECommerce\Contracts\Product\ProductContract;
 use Arkenstone\Core\ECommerce\Contracts\ProductServiceInterface;
-use Arkenstone\Core\ECommerce\Enum\APIDefaults;
 use Arkenstone\Core\ECommerce\Product\Events\ProductCreated;
 use Arkenstone\Core\ECommerce\Product\Events\ProductDeleted;
 use Arkenstone\Core\ECommerce\Product\Events\ProductImageDeleted;
@@ -29,8 +28,14 @@ class ProductService implements ProductServiceInterface
     * @var array
     */
    protected array $allowedRelations = ['categories', 'brand', 'images', 'taxonomies', 'taxonomies.type', 'stocks.variationOptions.variant'];
-   protected int $PER_PAGE = config('arkenstone.api_defaults.per_page') ?? 100000000;
-   protected string $ORDER = config('arkenstone.api_defaults.order') ?? 'desc';
+   protected int $PER_PAGE;
+   protected string $ORDER;
+
+   public function __construct()
+   {
+      $this->PER_PAGE = config('arkenstone.api_defaults.per_page', 100000000);
+      $this->ORDER = config('arkenstone.api_defaults.order', 'desc');
+   }
 
    public function find(int $id, array $with = []): ?ProductContract
    {
@@ -49,6 +54,8 @@ class ProductService implements ProductServiceInterface
    public function search(array $filters): LengthAwarePaginator
    {
       $relationsToLoad = isset($filters['with']) & !empty($filters['with']) ? $filters['with'] : $this->allowedRelations;
+
+      Log::info("Relations to Load 123");
 
       $query = Product::query()->with($relationsToLoad);
 
