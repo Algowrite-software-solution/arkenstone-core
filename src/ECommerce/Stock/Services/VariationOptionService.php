@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Log;
 
 class VariationOptionService implements VariationOptionServiceInterface
 {
+    protected int $PER_PAGE = APIDefaults::PER_PAGE;
+    protected string $ORDER = APIDefaults::ORDER;
     /**
      * Create a new variation option.
      */
@@ -86,6 +88,6 @@ class VariationOptionService implements VariationOptionServiceInterface
      */
     public function getAllOptions(): Collection
     {
-        return VariationOption::with('variant')->get();
+        return VariationOption::with('variant')->orderBy('created_at', $filters['order'] ?? $this->ORDER)->get();
     }
 }

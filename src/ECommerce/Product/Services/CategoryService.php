@@ -16,7 +16,7 @@ class CategoryService implements CategoryServiceInterface
 
     public function getAllCategories(): Collection
     {
-        return Category::all();
+        return Category::orderBy('created_at', 'desc')->get();
     }
 
     public function getCategoryById(int $id): ?Category

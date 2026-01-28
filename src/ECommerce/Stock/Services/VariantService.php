@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Log;
 
 class VariantService implements VariantServiceInterface
 {
+    protected int $PER_PAGE = APIDefaults::PER_PAGE;
+    protected string $ORDER = APIDefaults::ORDER;
     /**
      * Create a new variant.
      */
@@ -75,6 +77,6 @@ class VariantService implements VariantServiceInterface
      */
     public function getVariants(): Collection
     {
-        return Variant::with('variationOptions')->get();
+        return Variant::with('variationOptions')->orderBy('created_at', $filters['order'] ?? $this->ORDER)->get();
     }
 }
