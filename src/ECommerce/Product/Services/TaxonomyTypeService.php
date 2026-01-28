@@ -9,7 +9,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class TaxonomyTypeService implements TaxonomyTypeServiceInterface
 {
-    protected int $PER_PAGE = APIDefaults::PER_PAGE;
+    protected int $PER_PAGE = (int) APIDefaults::PER_PAGE->value;
     protected string $ORDER = APIDefaults::ORDER;
 
     public function listTypes(array $filters = []): LengthAwarePaginator

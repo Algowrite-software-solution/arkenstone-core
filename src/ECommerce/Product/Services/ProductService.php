@@ -29,7 +29,7 @@ class ProductService implements ProductServiceInterface
     * @var array
     */
    protected array $allowedRelations = ['categories', 'brand', 'images', 'taxonomies', 'taxonomies.type', 'stocks.variationOptions.variant'];
-   protected int $PER_PAGE = APIDefaults::PER_PAGE->value;
+   protected int $PER_PAGE = (int) APIDefaults::PER_PAGE->value;
    protected string $ORDER = APIDefaults::ORDER->value;
 
    public function find(int $id, array $with = []): ?ProductContract
