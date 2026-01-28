@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 class TaxonomyService implements TaxonomyServiceInterface
 {
 
-    protected int $PER_PAGE = APIDefaults::PER_PAGE;
+    protected int $PER_PAGE = (int) APIDefaults::PER_PAGE->value;
     protected string $ORDER = APIDefaults::ORDER;
 
     //Taxonomies

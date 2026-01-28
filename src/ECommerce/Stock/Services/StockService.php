@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Log;
 
 class StockService implements StockServiceInterface
 {
-    protected int $PER_PAGE = APIDefaults::PER_PAGE;
+    protected int $PER_PAGE = (int) APIDefaults::PER_PAGE->value;
     protected string $ORDER = APIDefaults::ORDER;
     /**
      * Allowed relations for eager loading.

@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Log;
 
 class VariationOptionService implements VariationOptionServiceInterface
 {
-    protected int $PER_PAGE = APIDefaults::PER_PAGE;
+    protected int $PER_PAGE = (int) APIDefaults::PER_PAGE->value;
     protected string $ORDER = APIDefaults::ORDER;
     /**
      * Create a new variation option.
