@@ -3,6 +3,7 @@
 namespace Arkenstone\Core\ECommerce\Stock\Services;
 
 use Arkenstone\Core\ECommerce\Contracts\StockServiceInterface;
+use Arkenstone\Core\ECommerce\Enum\APIDefaults;
 use Arkenstone\Core\ECommerce\Stock\Enum\StockReservationStatus;
 use Arkenstone\Core\ECommerce\Stock\Models\Stock;
 use Illuminate\Database\Eloquent\Collection;

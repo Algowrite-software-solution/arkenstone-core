@@ -3,6 +3,7 @@
 namespace Arkenstone\Core\ECommerce\Stock\Services;
 
 use Arkenstone\Core\ECommerce\Contracts\VariationOptionServiceInterface;
+use Arkenstone\Core\ECommerce\Enum\APIDefaults;
 use Arkenstone\Core\ECommerce\Stock\Models\VariationOption;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Log;
@@ -26,7 +27,7 @@ class VariationOptionService implements VariationOptionServiceInterface
 
         return $option->load('variant');
     }
- 
+
     /**
      * Update an existing variation option.
      */
