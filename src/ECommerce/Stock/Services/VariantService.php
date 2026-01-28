@@ -3,6 +3,7 @@
 namespace Arkenstone\Core\ECommerce\Stock\Services;
 
 use Arkenstone\Core\ECommerce\Contracts\VariantServiceInterface;
+use Arkenstone\Core\ECommerce\Enum\APIDefaults;
 use Arkenstone\Core\ECommerce\Stock\Models\Variant;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Log;

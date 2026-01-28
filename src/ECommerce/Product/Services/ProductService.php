@@ -4,6 +4,7 @@ namespace Arkenstone\Core\ECommerce\Product\Services;
 
 use Arkenstone\Core\ECommerce\Contracts\Product\ProductContract;
 use Arkenstone\Core\ECommerce\Contracts\ProductServiceInterface;
+use Arkenstone\Core\ECommerce\Enum\APIDefaults;
 use Arkenstone\Core\ECommerce\Product\Events\ProductCreated;
 use Arkenstone\Core\ECommerce\Product\Events\ProductDeleted;
 use Arkenstone\Core\ECommerce\Product\Events\ProductImageDeleted;

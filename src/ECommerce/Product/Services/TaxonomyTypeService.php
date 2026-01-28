@@ -3,6 +3,7 @@
 namespace Arkenstone\Core\ECommerce\Product\Services;
 
 use Arkenstone\Core\ECommerce\Contracts\TaxonomyTypeServiceInterface;
+use Arkenstone\Core\ECommerce\Enum\APIDefaults;
 use Arkenstone\Core\ECommerce\Product\Models\TaxonomyType;
 use Illuminate\Pagination\LengthAwarePaginator;
 

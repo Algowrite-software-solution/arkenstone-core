@@ -1,6 +1,6 @@
 <?php
 
-namespace Arkenstone\Core\ECommerce\Product\Enum;
+namespace Arkenstone\Core\ECommerce\Enum;
 
 enum APIDefaults: string
 {
