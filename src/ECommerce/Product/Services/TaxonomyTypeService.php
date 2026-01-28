@@ -9,11 +9,18 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class TaxonomyTypeService implements TaxonomyTypeServiceInterface
 {
-    protected int $PER_PAGE = config('arkenstone.api_defaults.per_page') ?? 100000000;
-    protected string $ORDER = config('arkenstone.api_defaults.order') ?? 'desc';
+    protected int $PER_PAGE;
+    protected string $ORDER;
+
+    public function __construct()
+    {
+        $this->PER_PAGE = config('arkenstone.api_defaults.per_page', 100000000);
+        $this->ORDER = config('arkenstone.api_defaults.order', 'desc');
+    }
 
     public function listTypes(array $filters = []): LengthAwarePaginator
     {
+
         $q = TaxonomyType::query();
 
         // By default, we include taxonomies.

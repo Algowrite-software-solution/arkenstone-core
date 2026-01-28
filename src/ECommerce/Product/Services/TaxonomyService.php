@@ -11,8 +11,14 @@ use Illuminate\Support\Facades\DB;
 class TaxonomyService implements TaxonomyServiceInterface
 {
 
-    protected int $PER_PAGE = config('arkenstone.api_defaults.per_page') ?? 100000000;
-    protected string $ORDER = config('arkenstone.api_defaults.order') ?? 'desc';
+    protected int $PER_PAGE;
+    protected string $ORDER;
+
+    public function __construct()
+    {
+        $this->PER_PAGE = config('arkenstone.api_defaults.per_page', 100000000);
+        $this->ORDER = config('arkenstone.api_defaults.order', 'desc');
+    }
 
     //Taxonomies
     public function listTaxonomies(array $filters = []): LengthAwarePaginator
