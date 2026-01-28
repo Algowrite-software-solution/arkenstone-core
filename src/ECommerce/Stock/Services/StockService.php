@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Log;
 
 class StockService implements StockServiceInterface
 {
+    protected int $PER_PAGE = APIDefaults::PER_PAGE;
+    protected string $ORDER = APIDefaults::ORDER;
     /**
      * Allowed relations for eager loading.
      */
@@ -145,7 +147,7 @@ class StockService implements StockServiceInterface
             $query->inStock();
         }
 
-        return $query->get();
+        return $query->orderBy('created_at', $filters['order'] ?? $this->ORDER)->get();
     }
 
     /**

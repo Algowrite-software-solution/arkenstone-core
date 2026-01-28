@@ -8,6 +8,9 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class TaxonomyTypeService implements TaxonomyTypeServiceInterface
 {
+    protected int $PER_PAGE = APIDefaults::PER_PAGE;
+    protected string $ORDER = APIDefaults::ORDER;
+
     public function listTypes(array $filters = []): LengthAwarePaginator
     {
         $q = TaxonomyType::query();
@@ -37,7 +40,7 @@ class TaxonomyTypeService implements TaxonomyTypeServiceInterface
             });
         }
 
-        return $q->paginate($filters['per_page'] ?? 15);
+        return $q->orderBy('created_at', $filters['order'] ?? $this->ORDER)->paginate($filters['per_page'] ?? $this->PER_PAGE);
     }
 
     public function createType(array $data): TaxonomyType

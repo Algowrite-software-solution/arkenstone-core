@@ -28,7 +28,8 @@ class ProductService implements ProductServiceInterface
     * @var array
     */
    protected array $allowedRelations = ['categories', 'brand', 'images', 'taxonomies', 'taxonomies.type', 'stocks.variationOptions.variant'];
-   protected int $PER_PAGE = 100000;
+   protected int $PER_PAGE = APIDefaults::PER_PAGE->value;
+   protected string $ORDER = APIDefaults::ORDER->value;
 
    public function find(int $id, array $with = []): ?ProductContract
    {
@@ -53,7 +54,7 @@ class ProductService implements ProductServiceInterface
       $filter = new ProductFilter($query, $filters); // filter the query based on the provided filters
       $filteredQuery = $filter->apply();
 
-      return $filteredQuery->orderBy($filters['order_by'] ?? 'created_at', $filters['order'] ?? 'desc')->paginate($filters['per_page'] ?? $this->PER_PAGE);
+      return $filteredQuery->orderBy($filters['order_by'] ?? 'created_at', $filters['order'] ?? $this->ORDER)->paginate($filters['per_page'] ?? $this->PER_PAGE);
    }
 
    public function create(array $data): ProductContract

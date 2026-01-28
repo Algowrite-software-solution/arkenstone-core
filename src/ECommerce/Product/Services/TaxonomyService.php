@@ -9,6 +9,10 @@ use Illuminate\Support\Facades\DB;
 
 class TaxonomyService implements TaxonomyServiceInterface
 {
+
+    protected int $PER_PAGE = APIDefaults::PER_PAGE;
+    protected string $ORDER = APIDefaults::ORDER;
+
     //Taxonomies
     public function listTaxonomies(array $filters = []): LengthAwarePaginator
     {
@@ -28,7 +32,7 @@ class TaxonomyService implements TaxonomyServiceInterface
         if (!empty($filters['search'])) {
             $q->where('name', 'like', '%' . $filters['search'] . '%');
         }
-        return $q->paginate($filters['per_page'] ?? 15);
+        return $q->orderBy('created_at', $filters['order'] ?? $this->ORDER)->paginate($filters['per_page'] ?? $this->PER_PAGE);
     }
 
     public function createTaxonomy(array $data): Taxonomy
