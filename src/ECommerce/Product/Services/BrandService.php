@@ -3,7 +3,6 @@
 namespace Arkenstone\Core\ECommerce\Product\Services;
 
 use Arkenstone\Core\ECommerce\Contracts\BrandServiceInterface;
-use Arkenstone\Core\ECommerce\Product\Enum\APIDefaults;
 use Arkenstone\Core\ECommerce\Product\Models\Brand;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
