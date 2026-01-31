@@ -76,6 +76,17 @@ class ProductFilter
 
     
     /**
+     * Handles the 'product_ids' filter.
+     * Maps to the scopeFilterByName() in the Product model.
+     */
+    protected function ids(array $value): void
+    {
+        if (!empty($value)) {
+            $this->query->byIds($value);
+        }
+    }
+
+    /**
      * Handles the 'name' filter.
      * Maps to the scopeFilterByName() in the Product model.
      */
