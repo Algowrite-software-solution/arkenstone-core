@@ -122,6 +122,7 @@ class ProductService implements ProductServiceInterface
          // Extract image-related fields
          $uploadedImages = $data['images'] ?? [];
          $deleteImageIds = $data['delete_image_ids'] ?? [];
+         $deleteImageUrls = $data['delete_image_urls'] ?? [];
          $imageMetadata = [
             'alt_texts' => $data['image_alt_texts'] ?? [],
             'sort_orders' => $data['image_sort_orders'] ?? [],
@@ -129,7 +130,7 @@ class ProductService implements ProductServiceInterface
          ];
 
          // Remove image fields from product data
-         unset($data['images'], $data['image_alt_texts'], $data['image_sort_orders'], $data['primary_image_index'], $data['delete_image_ids']);
+         unset($data['images'], $data['image_alt_texts'], $data['image_sort_orders'], $data['primary_image_index'], $data['delete_image_ids'], $data['delete_image_urls']);
 
          $product->update($data);
 
@@ -153,12 +154,10 @@ class ProductService implements ProductServiceInterface
             }
          }
 
-         // Handle existing images metadata updates
-         if (isset($data['images'])) {
-            $existingImageIds = collect($data['images'])->pluck('id')->filter()->toArray();
-            $product->images()->whereNotIn('id', $existingImageIds)->delete();
-            foreach ($data['images'] as $imageData) {
-               $product->images()->updateOrCreate(['id' => $imageData['id'] ?? null], $imageData);
+         // Delete Specified images by URL
+         if (!empty($deleteImageUrls)) {
+            foreach ($deleteImageUrls as $imageUrl) {
+               // #TODO : check the actual file locatoin in the local drive and if it was under product directory, delete it
             }
          }
 
@@ -249,7 +248,7 @@ class ProductService implements ProductServiceInterface
 
                // Prepare image data
                $imageData = [
-                  'image_url' => $storedPath, // Fixed: was 'url', now 'image_url'
+                  'image_url' => $storedPath, 
                   'is_primary' => false,
                ];
 
