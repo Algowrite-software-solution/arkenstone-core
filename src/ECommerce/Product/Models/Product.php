@@ -117,6 +117,11 @@ class Product extends Model implements ProductContract
         return $query->where('name', 'like', '%' . $name . '%');
     }
 
+
+    public function scopeByIds(Builder $query, array $ids): Builder
+    {
+        return $query->whereIn('id', $ids);
+    }
     public function scopeMinPrice(Builder $query, float $price): Builder
     {
         return $query->where('price', '>=', $price);

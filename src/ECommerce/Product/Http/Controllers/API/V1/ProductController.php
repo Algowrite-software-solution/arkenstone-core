@@ -26,7 +26,7 @@ class ProductController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $filters = $request->only(['name', 'min_price', 'max_price', 'brand_id', 'category_ids', 'categories', 'taxonomy_ids', 'is_active', 'per_page', 'brand', 'brand_ids', 'order_by', 'order', 'with']);
+        $filters = $request->only(['ids','name', 'min_price', 'max_price', 'brand_id', 'category_ids', 'categories', 'taxonomy_ids', 'is_active', 'per_page', 'brand', 'brand_ids', 'order_by', 'order', 'with']);
 
         // Convert category_ids string to array if needed
         if (!empty($filters['category_ids']) && !is_array($filters['category_ids'])) {
