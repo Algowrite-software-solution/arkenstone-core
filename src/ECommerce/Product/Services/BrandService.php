@@ -29,10 +29,10 @@ class BrandService implements BrandServiceInterface
     public function createBrand(array $data): Brand
     {
         // Handle pre-uploaded images (existing behavior)
-        if (!empty($data['logo_image'])) {
+        if (!empty($data['logo_image'] && !empty($data['logo_image'][0]))) {
             Log::info("Uploaded Images", [$data['logo_image']]);
 
-            $storedPath = $this->addImage($data['logo_image']);
+            $storedPath = $this->addImage($data['logo_image'][0]);
 
             // delete old image
             if (!empty($data['logo_url'])) {
@@ -56,8 +56,8 @@ class BrandService implements BrandServiceInterface
         }
 
         // update image
-        if (!empty($data['logo_image'])) {
-            $storedPath = $this->addImage($data['logo_image']);
+        if (!empty($data['logo_image'] && !empty($data['logo_image'][0]))) {
+            $storedPath = $this->addImage($data['logo_image'][0]);
 
             if ($storedPath) {
                 $data['logo_url'] = $storedPath;
