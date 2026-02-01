@@ -6,6 +6,8 @@ use Arkenstone\Core\ECommerce\Contracts\BrandServiceInterface;
 use Arkenstone\Core\ECommerce\Product\Models\Brand;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class BrandService implements BrandServiceInterface
 {
@@ -26,6 +28,22 @@ class BrandService implements BrandServiceInterface
 
     public function createBrand(array $data): Brand
     {
+        // Handle pre-uploaded images (existing behavior)
+        if (!empty($data['logo_image'])) {
+            Log::info("Uploaded Images", [$data['logo_image']]);
+
+            $storedPath = $this->addImage($data['logo_image']);
+
+            // delete old image
+            if (!empty($data['logo_url'])) {
+                $this->deleteImage($data['logo_url']);
+            }
+
+            if ($storedPath) {
+                $data['logo_url'] = $storedPath;
+            }
+        }
+
         return Brand::create($data);
     }
 
@@ -37,6 +55,20 @@ class BrandService implements BrandServiceInterface
             return false;
         }
 
+        // update image
+        if (!empty($data['logo_image'])) {
+            $storedPath = $this->addImage($data['logo_image']);
+
+            if ($storedPath) {
+                $data['logo_url'] = $storedPath;
+            }
+
+            // delete old image
+            if (!empty($brand->logo_url)) {
+                $this->deleteImage($brand->logo_url);
+            }
+        }
+
         return $brand->update($data);
     }
 
@@ -46,6 +78,11 @@ class BrandService implements BrandServiceInterface
 
         if (!$brand) {
             return false;
+        }
+
+        // delete image
+        if (!empty($brand->logo_url)) {
+            $this->deleteImage($brand->logo_url);
         }
 
         return $brand->delete();
@@ -60,4 +97,46 @@ class BrandService implements BrandServiceInterface
     {
         return Brand::latest()->paginate($filters['limit'] ?? 15);
     }
+
+
+    public function addImage(array $image): ?string
+    {
+
+        $config = config('arkenstone.brand_images');
+        $disk = $config['disk'] ?? 'public';
+        $path = $config['path'] ?? 'products/images';
+        $useUniqueFilenames = $config['unique_filenames'] ?? true;
+
+        if ($image instanceof UploadedFile) {
+            // Store the file and get its relative path
+            $storedPath = null;
+            if ($useUniqueFilenames) {
+                $storedPath = $image->store($path, $disk);
+            } else {
+                $originalName = $image->getClientOriginalName();
+                $storedPath = $image->storeAs($path, $originalName, $disk);
+            }
+
+            return $storedPath;
+        }
+
+        return null;
+    }
+
+    public function deleteImage(string $path): bool
+    {
+
+        $config = config('arkenstone.brand_images');
+        $disk = $config['disk'] ?? 'public';
+        $path = $config['path'] ?? 'products/images';
+
+
+        // Delete the physical file from storage.
+        if (Storage::disk($disk)->exists($path)) {
+            return Storage::disk($disk)->delete($path);
+        }
+
+        return false;
+    }
 }
+
