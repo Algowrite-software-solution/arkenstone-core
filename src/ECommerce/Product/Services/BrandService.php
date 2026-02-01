@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class BrandService implements BrandServiceInterface
 {
@@ -28,6 +29,10 @@ class BrandService implements BrandServiceInterface
 
     public function createBrand(array $data): Brand
     {
+
+        $slug = Str::slug($data['name']);
+        $data['slug'] = $slug;
+
         // Handle pre-uploaded images (existing behavior)
         if (!empty($data['logo_image'])) {
             Log::info("Uploaded Images", [$data['logo_image']]);
@@ -50,6 +55,12 @@ class BrandService implements BrandServiceInterface
     public function updateBrand(int $id, array $data): bool
     {
         $brand = Brand::find($id);
+
+        // update slug if the name is provided
+        if (!empty($data['name'])) {
+            $slug = Str::slug($data['name']);
+            $data['slug'] = $slug;
+        }
 
         if (!$brand) {
             return false;
