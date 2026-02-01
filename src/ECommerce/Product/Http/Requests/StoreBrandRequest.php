@@ -3,6 +3,7 @@
 namespace Arkenstone\Core\ECommerce\Product\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Str;
 
 class StoreBrandRequest extends FormRequest
 {
@@ -14,6 +15,23 @@ class StoreBrandRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        // if the image is provided with an array take the first item and put it in logo_image
+        if (is_array($this->logo_image)) {
+            $this->merge([
+                'logo_image' => $this->logo_image[0],
+            ]);
+        }
+
+        // if the slug is not provided generate it from the name
+        if (empty($this->slug)) {
+            $this->merge([
+                'slug' => Str::slug($this->name),
+            ]);
+        }
+    }
+
     /**
      * Get the validation rules that apply to the request.
      *
@@ -23,7 +41,7 @@ class StoreBrandRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'slug' => ['required', 'string', 'max:255', 'unique:brands,slug'],
+            'slug' => ['nullable', 'sometimes', 'string', 'max:255', 'unique:brands,slug'],
             'description' => ['nullable', 'string'],
             'logo_image' => ['nullable', 'sometimes', 'image', 'max:2048', 'mimes:jpeg,png,jpg,gif,svg'],
             'is_active' => ['nullable', 'boolean'],
