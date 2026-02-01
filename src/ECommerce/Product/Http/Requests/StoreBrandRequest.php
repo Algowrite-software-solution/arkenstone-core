@@ -25,7 +25,7 @@ class StoreBrandRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'slug' => ['required', 'string', 'max:255', 'unique:brands,slug'],
             'description' => ['nullable', 'string'],
-            'logo_url' => ['nullable', 'string', 'max:500'],
+            'logo_image' => ['nullable', 'sometimes', 'image', 'max:2048', 'mimes:jpeg,png,jpg,gif,svg'],
             'is_active' => ['nullable', 'boolean'],
         ];
     }
@@ -40,7 +40,9 @@ class StoreBrandRequest extends FormRequest
         return [
             'name.required' => 'Brand name is required.',
             'slug.unique' => 'This slug is already in use.',
-            'logo.max' => 'Logo path must not exceed 500 characters.',
+            'logo_image.max' => 'Logo image must not exceed 2MB.',
+            'logo_image.mimes' => 'Logo image must be a jpeg, png, jpg, gif or svg file.',
+            'logo_image.image' => 'Logo image must be a valid image file.',
         ];
     }
 }
