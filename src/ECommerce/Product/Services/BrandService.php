@@ -29,10 +29,10 @@ class BrandService implements BrandServiceInterface
     public function createBrand(array $data): Brand
     {
         // Handle pre-uploaded images (existing behavior)
-        if (!empty($data['logo_image'] && !empty($data['logo_image'][0]))) {
+        if (!empty($data['logo_image'])) {
             Log::info("Uploaded Images", [$data['logo_image']]);
 
-            $storedPath = $this->addImage($data['logo_image'][0]);
+            $storedPath = $this->addImage($data['logo_image']);
 
             // delete old image
             if (!empty($data['logo_url'])) {
@@ -99,7 +99,7 @@ class BrandService implements BrandServiceInterface
     }
 
 
-    public function addImage(array $image): ?string
+    public function addImage($image): ?string
     {
 
         $config = config('arkenstone.brand_images');
