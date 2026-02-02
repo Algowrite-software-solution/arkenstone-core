@@ -161,6 +161,15 @@ class ProductService implements ProductServiceInterface
             }
          }
 
+         // delete miages by image id
+         Log::info("Info updated 1");
+         if (!empty($deleteImageIds)) {
+            Log::info("Info updated 2");
+            ProductImage::whereIn('id', $deleteImageIds)
+               ->where('product_id', $product->id)
+               ->delete();
+         }
+
          // Handle new file uploads
          if (!empty($uploadedImages)) {
             $this->addImages($uploadedImages, $product->id, $imageMetadata);
