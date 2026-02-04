@@ -165,9 +165,7 @@ class ProductService implements ProductServiceInterface
          Log::info("Info updated 1");
          if (!empty($deleteImageIds)) {
             Log::info("Info updated 2");
-            ProductImage::whereIn('id', $deleteImageIds)
-               ->where('product_id', $product->id)
-               ->delete();
+            ProductImage::whereIn('id', $deleteImageIds)->delete();
          }
 
          // Handle new file uploads
