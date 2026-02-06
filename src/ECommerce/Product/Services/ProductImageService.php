@@ -5,6 +5,8 @@ namespace Arkenstone\Core\ECommerce\Product\Services;
 use Arkenstone\Core\ECommerce\Contracts\ProductImageServiceInterface;
 use Arkenstone\Core\ECommerce\Product\Models\ProductImage;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class ProductImageService implements ProductImageServiceInterface
 {
@@ -47,6 +49,18 @@ class ProductImageService implements ProductImageServiceInterface
 
         if (!$image) {
             return false;
+        }
+
+        Log::info("Product Images : ", [$image]);
+
+        // delete the image file
+        if ($image->image_url) {
+             try {
+               Storage::disk('products')->delete($image->image_url);
+               Log::info("Product Images deleted: ", [$image->image_url]);
+            } catch (\Throwable $e) {
+               Log::warning("Failed to delete image file: {$image->image_url}");
+            }
         }
 
         return $image->delete();
