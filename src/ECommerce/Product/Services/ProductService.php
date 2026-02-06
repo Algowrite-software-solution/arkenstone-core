@@ -253,6 +253,8 @@ class ProductService implements ProductServiceInterface
                   $storedPath = $imageFile->storeAs($path, $originalName, $disk);
                }
 
+               
+
                // Prepare image data
                $imageData = [
                   'image_url' => $storedPath, 
