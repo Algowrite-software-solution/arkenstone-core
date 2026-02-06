@@ -27,8 +27,12 @@ class StoreBrandRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'slug' => ['nullable', 'sometimes', 'string', 'max:255', 'unique:brands,slug'],
             'description' => ['nullable', 'string'],
-            'logo_image' => ['sometimes', 'nullable', 'array'],
-            'logo_image.*' => ['nullable', 'sometimes', 'image', 'max:2048', 'mimes:jpeg,png,jpg,gif,svg'],
+            
+            'logo_image' => ['nullable', 'sometimes', 'image', 'max:2048', 'mimes:jpeg,png,jpg,gif,svg'],
+
+            'logo_images' => ['sometimes', 'nullable', 'array'],
+            'logo_images.*' => ['nullable', 'sometimes', 'image', 'max:2048', 'mimes:jpeg,png,jpg,gif,svg'],
+            
             'is_active' => ['nullable', 'boolean'],
         ];
     }
@@ -43,9 +47,14 @@ class StoreBrandRequest extends FormRequest
         return [
             'name.required' => 'Brand name is required.',
             'slug.unique' => 'This slug is already in use.',
-            'logo_image.*.image' => 'Logo image must be a valid image file.',
-            'logo_image.*.max' => 'Logo image must not exceed 2MB.',
-            'logo_image.*.mimes' => 'Logo image must be a jpeg, png, jpg, gif or svg file.',
+            
+            'logo_image.image' => 'Logo image must be a valid image file.',
+            'logo_image.max' => 'Logo image must not exceed 2MB.',
+            'logo_image.mimes' => 'Logo image must be a jpeg, png, jpg, gif or svg file.',
+
+            'logo_images.*.image' => 'Logo image must be a valid image file.',
+            'logo_images.*.max' => 'Logo image must not exceed 2MB.',
+            'logo_images.*.mimes' => 'Logo image must be a jpeg, png, jpg, gif or svg file.',
         ];
     }
 }
