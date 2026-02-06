@@ -75,7 +75,9 @@ class BrandService implements BrandServiceInterface
             $this->deleteImage($brand->logo_url);
         }
 
-         // Handle pre-uploaded images (existing behavior)
+        $storedPath = null;
+
+        // Handle pre-uploaded images (existing behavior)
         if (!empty($data['logo_images']) || !empty($data['logo_images'][0])) {
             Log::info("Uploaded Images", [$data['logo_images'][0]]);
             $storedPath = $this->addImage($data['logo_images'][0]);
@@ -90,7 +92,7 @@ class BrandService implements BrandServiceInterface
         if ($storedPath) {
             $data['logo_url'] = $storedPath;
         }
-        
+
         return $brand->update($data);
     }
 
