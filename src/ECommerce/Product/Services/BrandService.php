@@ -4,6 +4,7 @@ namespace Arkenstone\Core\ECommerce\Product\Services;
 
 use Arkenstone\Core\ECommerce\Contracts\BrandServiceInterface;
 use Arkenstone\Core\ECommerce\Product\Models\Brand;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Log;
@@ -33,20 +34,23 @@ class BrandService implements BrandServiceInterface
         $slug = Str::slug($data['name']);
         $data['slug'] = $slug;
 
+
+        $storedPath = null;
+
         // Handle pre-uploaded images (existing behavior)
-        if (!empty($data['logo_image'])) {
-            Log::info("Uploaded Images", [$data['logo_image']]);
+        if (!empty($data['logo_images']) || !empty($data['logo_images'][0])) {
+            Log::info("Uploaded Images", [$data['logo_images'][0]]);
+            $storedPath = $this->addImage($data['logo_images'][0]);
+        }
 
+        // handle single image uplaod
+        if (!empty($data['logo_image']) && !empty($data['logo_image'][0])) {
+            Log::info("Uploaded Images", [$data['logo_image'][0]]);
             $storedPath = $this->addImage($data['logo_image']);
+        }
 
-            // delete old image
-            if (!empty($data['logo_url'])) {
-                $this->deleteImage($data['logo_url']);
-            }
-
-            if ($storedPath) {
-                $data['logo_url'] = $storedPath;
-            }
+        if ($storedPath) {
+            $data['logo_url'] = $storedPath;
         }
 
         return Brand::create($data);
@@ -66,20 +70,27 @@ class BrandService implements BrandServiceInterface
             return false;
         }
 
-        // update image
-        if (!empty($data['logo_image'] && !empty($data['logo_image'][0]))) {
-            $storedPath = $this->addImage($data['logo_image'][0]);
-
-            if ($storedPath) {
-                $data['logo_url'] = $storedPath;
-            }
-
-            // delete old image
-            if (!empty($brand->logo_url)) {
-                $this->deleteImage($brand->logo_url);
-            }
+        // delete old image
+        if (!empty($brand->logo_url)) {
+            $this->deleteImage($brand->logo_url);
         }
 
+         // Handle pre-uploaded images (existing behavior)
+        if (!empty($data['logo_images']) || !empty($data['logo_images'][0])) {
+            Log::info("Uploaded Images", [$data['logo_images'][0]]);
+            $storedPath = $this->addImage($data['logo_images'][0]);
+        }
+
+        // handle single image uplaod
+        if (!empty($data['logo_image']) && !empty($data['logo_image'][0])) {
+            Log::info("Uploaded Images", [$data['logo_image'][0]]);
+            $storedPath = $this->addImage($data['logo_image']);
+        }
+
+        if ($storedPath) {
+            $data['logo_url'] = $storedPath;
+        }
+        
         return $brand->update($data);
     }
 
@@ -115,7 +126,7 @@ class BrandService implements BrandServiceInterface
 
         $config = config('arkenstone.brand_images');
         $disk = $config['disk'] ?? 'public';
-        $path = $config['path'] ?? 'products/images';
+        $path = $config['path'] ?? 'brands/images';
         $useUniqueFilenames = $config['unique_filenames'] ?? true;
 
         if ($image instanceof UploadedFile) {
@@ -139,7 +150,7 @@ class BrandService implements BrandServiceInterface
 
         $config = config('arkenstone.brand_images');
         $disk = $config['disk'] ?? 'public';
-        $path = $config['path'] ?? 'products/images';
+        $path = $config['path'] ?? 'brands/images';
 
 
         // Delete the physical file from storage.
