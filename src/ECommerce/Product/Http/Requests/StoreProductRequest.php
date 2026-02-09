@@ -56,8 +56,8 @@ class StoreProductRequest extends FormRequest
             'slug' => ['sometimes', 'nullable', 'string', 'max:255', 'unique:products,slug'],
             'description' => ['sometimes', 'nullable', 'string'],
             'minified_description' => ['sometimes', 'nullable', 'string', 'max:500'],
-            'details' => ['sometimes',  'nullable', 'string'],
-            'price' => ['sometimes', 'nullable','numeric', 'min:0'],
+            'details' => ['sometimes', 'nullable', 'string'],
+            'price' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'discount_type' => ['sometimes', 'nullable', 'in:percentage,fixed_amount'],
             'discount_value' => ['sometimes', 'nullable', 'numeric', 'min:0', 'required_with:discount_type'],
             'sku' => ['sometimes', 'nullable', 'string', 'max:100', 'unique:products,sku'],
@@ -68,6 +68,7 @@ class StoreProductRequest extends FormRequest
             'category_ids.*' => ['integer', 'exists:categories,id'],
             'taxonomy_ids' => ['sometimes', 'nullable', 'array'],
             'taxonomy_ids.*' => ['integer', 'exists:taxonomies,id'],
+            'bundle_id' => ['sometimes', 'nullable', 'integer', 'exists:bundles,id'],
 
             // Image upload fields
             'images' => ['sometimes', 'nullable', 'array'],

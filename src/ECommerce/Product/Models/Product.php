@@ -33,6 +33,7 @@ class Product extends Model implements ProductContract
         'discount_value',
         'brand_id',
         'is_active',
+        'bundle_id',
     ];
 
     protected $casts = [
@@ -143,7 +144,7 @@ class Product extends Model implements ProductContract
             $q->whereIn('categories.id', $ids);
         });
     }
-    
+
     public function scopeByTaxonomies(Builder $query, array $ids): Builder
     {
         return $query->whereHas('taxonomies', function (Builder $q) use ($ids) {
@@ -208,6 +209,19 @@ class Product extends Model implements ProductContract
     public function stocks(): HasMany
     {
         return $this->hasMany(\Arkenstone\Core\ECommerce\Stock\Models\Stock::class);
+    }
+
+    /**
+     * Bundle relationships
+     */
+    public function bundle(): BelongsTo
+    {
+        return $this->belongsTo(Bundle::class);
+    }
+
+    public function isBundle(): bool
+    {
+        return !is_null($this->bundle_id);
     }
 
     /**
