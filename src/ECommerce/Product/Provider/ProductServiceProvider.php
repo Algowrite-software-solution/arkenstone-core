@@ -25,8 +25,8 @@ class ProductServiceProvider extends ServiceProvider
 
     public function register(): void
     {
-        $this->app->singleton('product', function () {
-            return new ProductService();
+        $this->app->singleton('product', function ($app) {
+            return $app->make(ProductService::class);
         });
 
         $this->app->bind(
