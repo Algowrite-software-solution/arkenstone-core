@@ -125,7 +125,7 @@ class ProductService implements ProductServiceInterface
 
          ProductCreated::dispatch($product);
 
-         return $product->fresh(['images', 'primaryImage', 'bundle.items.product']);
+         return $product->fresh(['images', 'primaryImage', 'categories', 'taxonomies', 'taxonomies.type', 'bundle.items.product']);
       });
    }
 
@@ -210,7 +210,7 @@ class ProductService implements ProductServiceInterface
          }
 
          ProductUpdated::dispatch($product->fresh());
-         return $product->fresh(['images', 'primaryImage', 'bundle.items.product']);
+         return $product->fresh(['images', 'primaryImage', 'categories', 'taxonomies', 'taxonomies.type', 'bundle.items.product']);
       });
    }
 
