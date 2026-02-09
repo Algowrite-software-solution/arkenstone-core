@@ -21,6 +21,9 @@ Route::prefix('api/v1')->middleware('api')->group(function () {
     // Brands
     Route::apiResource('brands', V1\BrandController::class);
 
+    // Bundles
+    Route::apiResource('bundles', V1\BundleController::class);
+
     // Categories
     Route::get('categories/roots', [V1\CategoryController::class, 'roots'])->name('categories.roots');
     Route::get('categories/{id}/children', [V1\CategoryController::class, 'children'])->name('categories.children');

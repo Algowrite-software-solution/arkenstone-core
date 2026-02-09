@@ -20,6 +20,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Arkenstone\Core\ECommerce\Product\Events\ProductImagesUploaded;
+use Arkenstone\Core\ECommerce\Product\Models\Bundle;
+use Exception;
 
 class ProductService implements ProductServiceInterface
 {
@@ -27,12 +29,15 @@ class ProductService implements ProductServiceInterface
     * A whitelist of relations that are safe to be eager-loaded.
     * @var array
     */
-   protected array $allowedRelations = ['categories', 'brand', 'images', 'taxonomies', 'taxonomies.type', 'stocks.variationOptions.variant'];
+   protected array $allowedRelations = ['categories', 'brand', 'images', 'taxonomies', 'taxonomies.type', 'stocks.variationOptions.variant', 'bundle', 'bundle.items.product'];
    protected int $PER_PAGE;
    protected string $ORDER;
 
-   public function __construct()
+   protected BundleService $bundleService;
+
+   public function __construct(BundleService $bundleService)
    {
+      $this->bundleService = $bundleService;
       $this->PER_PAGE = config('arkenstone.api_defaults.per_page', 100000000);
       $this->ORDER = config('arkenstone.api_defaults.order', 'desc');
    }
@@ -110,9 +115,17 @@ class ProductService implements ProductServiceInterface
             $this->addImages($uploadedImages, $product->id, $imageMetadata);
          }
 
+         // Handle bundle assignment validation
+         if (!empty($data['bundle_id'])) {
+            $bundle = Bundle::find($data['bundle_id']);
+            if ($bundle && $this->bundleService->bundleContainsProduct($bundle, $product->id)) {
+               throw new Exception("Recursion detected: Bundle '{$bundle->name}' contains this product, so it cannot be assigned to it.");
+            }
+         }
+
          ProductCreated::dispatch($product);
 
-         return $product->fresh(['images', 'primaryImage']);
+         return $product->fresh(['images', 'primaryImage', 'bundle.items.product']);
       });
    }
 
@@ -184,8 +197,20 @@ class ProductService implements ProductServiceInterface
             }
          }
 
+         // Handle bundle assignment validation
+         if (isset($data['bundle_id'])) {
+            // If bundle_id is being cleared (null), no validation needed.
+            // If it's being set/changed:
+            if ($data['bundle_id'] !== $product->bundle_id && !is_null($data['bundle_id'])) {
+               $bundle = Bundle::find($data['bundle_id']);
+               if ($bundle && $this->bundleService->bundleContainsProduct($bundle, $product->id)) {
+                  throw new Exception("Recursion detected: Bundle '{$bundle->name}' contains this product, so it cannot be assigned to it.");
+               }
+            }
+         }
+
          ProductUpdated::dispatch($product->fresh());
-         return $product->fresh(['images', 'primaryImage']);
+         return $product->fresh(['images', 'primaryImage', 'bundle.items.product']);
       });
    }
 
@@ -253,11 +278,11 @@ class ProductService implements ProductServiceInterface
                   $storedPath = $imageFile->storeAs($path, $originalName, $disk);
                }
 
-               
+
 
                // Prepare image data
                $imageData = [
-                  'image_url' => $storedPath, 
+                  'image_url' => $storedPath,
                   'is_primary' => false,
                ];
 

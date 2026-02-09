@@ -34,6 +34,8 @@ class ProductResource extends JsonResource
             'categories' => CategoryResource::collection($this->whenLoaded('categories')),
             'taxonomies' => TaxonomyResource::collection($this->whenLoaded('taxonomies')),
             'stocks' => StockResource::collection($this->whenLoaded('stocks')),
+            'bundle_id' => $this->bundle_id,
+            'bundle' => new BundleResource($this->whenLoaded('bundle')),
             'images' => ProductImageResource::collection($this->whenLoaded('images')),
             'primary_image' => new ProductImageResource($this->whenLoaded('primaryImage')),
             'created_at' => $this->created_at?->toISOString(),
