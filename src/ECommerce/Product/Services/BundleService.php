@@ -2,6 +2,7 @@
 
 namespace Arkenstone\Core\ECommerce\Product\Services;
 
+use Arkenstone\Core\ECommerce\Contracts\BundleServiceInterface;
 use Arkenstone\Core\ECommerce\Product\Models\Bundle;
 use Arkenstone\Core\ECommerce\Product\Models\BundleItem;
 use Arkenstone\Core\ECommerce\Product\Models\Product;
@@ -9,8 +10,25 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Exception;
 
-class BundleService
+class BundleService implements BundleServiceInterface
 {
+
+    public function getName(): string
+    {
+        return "Bundle Service";
+    }
+
+    public function getAll()
+    {
+        return Bundle::with('items.product')->get();
+    }
+
+
+    public function get(int $id)
+    {
+        return Bundle::with('items.product')->findOrFail($id);
+    }
+
     /**
      * Create a new bundle.
      */
@@ -23,16 +41,17 @@ class BundleService
                 $this->addItems($bundle, $data['product_ids']);
             }
 
-            return $bundle;
+            return $bundle->with('items.product')->refresh();
         });
     }
 
     /**
      * Update a bundle.
      */
-    public function update(Bundle $bundle, array $data): Bundle
+    public function update(int $id, array $data): Bundle
     {
-        return DB::transaction(function () use ($bundle, $data) {
+        return DB::transaction(function () use ($id, $data) {
+            $bundle = Bundle::findOrFail($id);
             if (isset($data['name'])) {
                 $bundle->update(['name' => $data['name']]);
             }
@@ -49,88 +68,37 @@ class BundleService
         });
     }
 
-    /**
-     * Add items to a bundle with recursion checking.
-     */
-    public function addItems(Bundle $bundle, array $productIds): void
+    public function delete(int $id): void
     {
-        // 1. Identify all "Parent Products" that use this Bundle.
-        // A Bundle might be used by multiple products (reusable definition).
-        $parentProducts = Product::where('bundle_id', $bundle->id)->get();
+        $bundle = Bundle::findOrFail($id);
+        $bundle->delete();
+    }
 
+    /**
+     * Add items to a bundle. 
+     * Ensures that no bundle is added as a child (depth-1 only).
+     */
+    public function addItems(int $bundleId, array $productIds): void
+    {
         foreach ($productIds as $productId) {
             $childProduct = Product::find($productId);
-            if (!$childProduct)
+            if (!$childProduct) {
                 continue;
-
-            // Check against each parent product
-            foreach ($parentProducts as $parentProduct) {
-                $this->validateRecursion($parentProduct, $childProduct);
             }
 
-            // Also validation: A bundle cannot contain itself if we treat Bundle as a standalone entity,
-            // but here Bundle is linked to Product. The recursion is via Products.
+            if ($childProduct->isBundle()) {
+                if ($childProduct->bundle_id === $bundleId) {
+                    // "a bundle can never have itself as the child"
+                    throw new Exception("A bundle can never have itself as a child.");
+                }
+                // "a bundle can never be a child of another bundle"
+                throw new Exception("A bundle can never be a child of another bundle.");
+            }
 
-            // Create the item
             BundleItem::create([
-                'bundle_id' => $bundle->id,
+                'bundle_id' => $bundleId,
                 'product_id' => $productId,
             ]);
         }
-    }
-
-    /**
-     * Validate that adding $childProduct to a bundle used by $parentProduct 
-     * does not create a cycle.
-     * 
-     * @throws Exception
-     */
-    protected function validateRecursion(Product $parentProduct, Product $childProduct): void
-    {
-        // 1. Direct Self-Reference: Parent cannot contain itself.
-        if ($parentProduct->id === $childProduct->id) {
-            throw new Exception("Recursion detected: Product '{$parentProduct->name}' cannot duplicate itself inside its own bundle.");
-        }
-
-        // 2. Transitive Recursion:
-        // If Child is a bundle, does it contain Parent?
-        if ($childProduct->isBundle()) {
-            // $childProduct->bundle is the Bundle definition.
-            // We need to check if that Bundle contains $parentProduct.
-            if ($this->bundleContainsProduct($childProduct->bundle, $parentProduct->id)) {
-                throw new Exception("Recursion detected: Product '{$childProduct->name}' already contains '{$parentProduct->name}'.");
-            }
-        }
-    }
-
-    /**
-     * Check if a Bundle (and its sub-bundles) contains a specific product ID.
-     */
-    public function bundleContainsProduct(?Bundle $bundle, int $targetProductId): bool
-    {
-        if (!$bundle)
-            return false;
-
-        $bundle->load('items.product'); // Load immediate items
-
-        foreach ($bundle->items as $item) {
-            $itemProduct = $item->product;
-            if (!$itemProduct)
-                continue;
-
-            // Check immediate match
-            if ($itemProduct->id === $targetProductId) {
-                return true;
-            }
-
-            // Recurse if the item is also a bundle
-            if ($itemProduct->isBundle()) {
-                if ($this->bundleContainsProduct($itemProduct->bundle, $targetProductId)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 }
