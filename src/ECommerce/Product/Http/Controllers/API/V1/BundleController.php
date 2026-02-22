@@ -10,7 +10,6 @@ use Arkenstone\Core\ECommerce\Product\Models\Bundle;
 use Arkenstone\Core\ECommerce\Product\Services\BundleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Support\Facades\Log;
 
 class BundleController extends Controller
 {
@@ -23,8 +22,8 @@ class BundleController extends Controller
 
     public function index(): AnonymousResourceCollection
     {
-        Log::info("data");
-        return BundleResource::collection(Bundle::with('products')->paginate(10));
+        $bundles = $this->bundleService->getAll();
+        return BundleResource::collection($bundles);
     }
 
     public function store(StoreBundleRequest $request): BundleResource
@@ -33,20 +32,20 @@ class BundleController extends Controller
         return new BundleResource($bundle);
     }
 
-    public function show(Bundle $bundle): BundleResource
+    public function show(int $id): BundleResource
     {
-        return new BundleResource($bundle->load('items.product'));
+        return new BundleResource($this->bundleService->get($id));
     }
 
-    public function update(UpdateBundleRequest $request, Bundle $bundle): BundleResource
+    public function update(UpdateBundleRequest $request, int $id): BundleResource
     {
-        $bundle = $this->bundleService->update($bundle, $request->validated());
+        $bundle = $this->bundleService->update($id, $request->validated());
         return new BundleResource($bundle);
     }
 
-    public function destroy(Bundle $bundle): JsonResponse
+    public function destroy(int $id): JsonResponse
     {
-        $bundle->delete();
+        $this->bundleService->delete($id);
         return response()->json(['message' => 'Bundle deleted successfully']);
     }
 }

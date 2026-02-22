@@ -9,14 +9,27 @@ use Illuminate\Support\Str;
 
 class CategoryService implements CategoryServiceInterface
 {
+
+    public int $PER_PAGE;
+    public string $ORDER;
+
+    public function __construct()
+    {
+        $this->PER_PAGE = config('arkenstone.api_defaults.per_page', 100000000);
+        $this->ORDER = config('arkenstone.api_defaults.order', 'desc');
+    }
+
     public function getName(): string
     {
         return "Category Service";
     }
 
-    public function getAllCategories(): Collection
+    public function getAllCategories(array $filters = []): Collection
     {
-        return Category::orderBy('created_at', 'desc')->get();
+        return Category::orderBy('created_at', $this->ORDER)->when(
+            !($filters['with_inactive'] ?? false),
+            fn($q) => $q->where('is_active', true)
+        )->get();
     }
 
     public function getCategoryById(int $id): ?Category

@@ -62,7 +62,10 @@ class ProductService implements ProductServiceInterface
 
       Log::info("Relations to Load 123");
 
-      $query = Product::query()->with($relationsToLoad);
+      $query = Product::query()->with($relationsToLoad)->when(
+         !($filters['with_inactive'] ?? false),
+         fn($q) => $q->where('is_active', true)
+      );
 
       $filter = new ProductFilter($query, $filters); // filter the query based on the provided filters
       $filteredQuery = $filter->apply();

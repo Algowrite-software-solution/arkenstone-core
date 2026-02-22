@@ -6,6 +6,7 @@ use Arkenstone\Core\ECommerce\Contracts\TaxonomyServiceInterface;
 use Arkenstone\Core\ECommerce\Product\Models\Taxonomy;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class TaxonomyService implements TaxonomyServiceInterface
 {
@@ -23,6 +24,12 @@ class TaxonomyService implements TaxonomyServiceInterface
     public function listTaxonomies(array $filters = []): LengthAwarePaginator
     {
         $q = Taxonomy::query()->with(['type', 'parent', 'children']);
+
+        $q->when(
+            !($filters['with_inactive'] ?? false),
+            fn($q) => $q->where('is_active', true)
+        );
+
         if (isset($filters['taxonomy_type_id'])) {
             $q->where('taxonomy_type_id', $filters['taxonomy_type_id']);
         }
@@ -38,11 +45,13 @@ class TaxonomyService implements TaxonomyServiceInterface
         if (!empty($filters['search'])) {
             $q->where('name', 'like', '%' . $filters['search'] . '%');
         }
-        return $q->orderBy('created_at', $filters['order'] ?? $this->ORDER)->paginate($filters['per_page'] ?? $this->PER_PAGE);
+
+        return $q->paginate($filters['per_page'] ?? $this->PER_PAGE);
     }
 
     public function createTaxonomy(array $data): Taxonomy
     {
+        $data['slug'] = isset($data["slug"]) && !empty($data["slug"]) ? $data["slug"] : Str::slug($data["name"]);
         return DB::transaction(function () use ($data) {
             return Taxonomy::create($data);
         });
@@ -50,6 +59,7 @@ class TaxonomyService implements TaxonomyServiceInterface
 
     public function updateTaxonomy(Taxonomy $taxonomy, array $data): Taxonomy
     {
+        $data['slug'] = isset($data["slug"]) && !empty($data["slug"]) ? $data["slug"] : Str::slug($data["name"]);
         $taxonomy->update($data);
         return $taxonomy->fresh();
     }

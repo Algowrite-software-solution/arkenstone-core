@@ -27,7 +27,7 @@ class UpdateTaxonomyRequest extends FormRequest
             'taxonomy_type_id' => ['sometimes', 'required', 'integer', 'exists:taxonomy_types,id'],
             'parent_id' => ['nullable', 'integer', 'exists:taxonomies,id', 'not_in:' . $taxonomyId],
             'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'slug' => ['nullable', 'string', 'max:255', 'unique:taxonomies,slug,' . $taxonomyId],
+            'slug' => ['sometimes', 'nullable', 'string', 'max:255', 'unique:taxonomies,slug,' . $taxonomyId],
             'description' => ['nullable', 'string'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'meta' => ['nullable', 'array'],

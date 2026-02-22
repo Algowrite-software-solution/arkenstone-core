@@ -17,9 +17,13 @@ use Illuminate\Routing\Controller;
 class CategoryController extends Controller
 {
 
+    public int $PER_PAGE;
+    public string $ORDER;
+
     public function __construct(private CategoryServiceInterface $categoryService)
     {
-      
+        $this->PER_PAGE = config('arkenstone.api_defaults.per_page', 100000000);
+        $this->ORDER = config('arkenstone.api_defaults.order', 'desc');
     }
 
     /**
@@ -27,7 +31,7 @@ class CategoryController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $perPage = $request->input('per_page', 15);
+        $perPage = $request->input('per_page', $this->PER_PAGE);
         $isActive = $request->input('is_active');
         $rootOnly = $request->input('root_only', false);
 
@@ -41,7 +45,12 @@ class CategoryController extends Controller
             $query->whereNull('parent_id');
         }
 
-        $categories = $query->paginate($perPage);
+        $query->when(
+            !($request->input('with_inactive') ?? false),
+            fn($q) => $q->where('is_active', true)
+        );
+
+        $categories = $query->orderBy('created_at', $this->ORDER)->paginate($perPage);
 
         return ResponseProtocol::success(
             new CategoryCollection($categories),

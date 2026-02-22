@@ -15,8 +15,13 @@ use Illuminate\Routing\Controller;
 class BrandController extends Controller
 {
 
+    public int $PER_PAGE;
+    public string $ORDER;
+
     public function __construct(private BrandServiceInterface $brandService)
     {
+        $this->PER_PAGE = config('arkenstone.api_defaults.per_page', 100000000);
+        $this->ORDER = config('arkenstone.api_defaults.order', 'desc');
     }
 
     /**
@@ -25,7 +30,8 @@ class BrandController extends Controller
     public function index(Request $request): JsonResponse
     {
         $filters = [
-            'limit' => $request->input('per_page', 15),
+            'limit' => $request->input('per_page', $this->PER_PAGE),
+            'with_inactive' => $request->input('with_inactive', false),
         ];
 
         $brands = $this->brandService->queryBrands($filters);

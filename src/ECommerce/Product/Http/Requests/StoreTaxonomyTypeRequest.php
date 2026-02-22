@@ -22,7 +22,7 @@ class StoreTaxonomyTypeRequest extends FormRequest
     {
         return [
             'name' => 'required|string|max:255|unique:taxonomy_types,name',
-            'slug' => 'required|string|max:255|unique:taxonomy_types,slug',
+            'slug' => 'nullable|sometimes|string|max:255|unique:taxonomy_types,slug',
             'description' => 'nullable|string',
             'is_active' => 'sometimes|boolean',
         ];
@@ -39,7 +39,6 @@ class StoreTaxonomyTypeRequest extends FormRequest
             'name.required' => 'The name field is required.',
             'name.string' => 'The name must be a string.',
             'name.max' => 'The name may not be greater than 255 characters.',
-            'slug.required' => 'The slug field is required.',
             'slug.string' => 'The slug must be a string.',
             'slug.max' => 'The slug may not be greater than 255 characters.',
             'slug.unique' => 'The slug has already been taken.',

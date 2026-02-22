@@ -120,6 +120,11 @@ class StockService implements StockServiceInterface
     {
         $query = Stock::query()->with($this->allowedRelations);
 
+        $query->orderBy('created_at', $this->ORDER)->when(
+            !($filters['with_inactive'] ?? false),
+            fn($q) => $q->where('status', 'active')
+        );
+
         // Filter by product
         if (isset($filters['product_id'])) {
             $query->byProduct($filters['product_id']);
