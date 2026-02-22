@@ -12,6 +12,7 @@ use Arkenstone\Core\Helpers\ResponseProtocol;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Str;
 
 class TaxonomyController extends Controller
 {

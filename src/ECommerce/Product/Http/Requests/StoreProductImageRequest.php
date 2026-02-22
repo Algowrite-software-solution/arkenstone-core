@@ -24,7 +24,7 @@ class StoreProductImageRequest extends FormRequest
         return [
             'product_id' => ['required', 'integer', 'exists:products,id'],
             'image_url' => ['required', 'string', 'max:500'],
-            'alt_text' => ['nullable', 'string', 'max:255'],
+            'alt_text' => ['sometimes', 'nullable', 'string', 'max:255'],
             'is_primary' => ['nullable', 'boolean'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
         ];

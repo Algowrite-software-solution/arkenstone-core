@@ -12,8 +12,13 @@ use Illuminate\Routing\Controller;
 
 class VariantController extends Controller
 {
+    public int $PER_PAGE;
+    public string $ORDER;
+
     public function __construct(private VariantServiceInterface $variantService)
     {
+        $this->PER_PAGE = config('arkenstone.api_defaults.per_page', 100000000);
+        $this->ORDER = config('arkenstone.api_defaults.order', 'desc');
     }
 
     /**
@@ -21,7 +26,7 @@ class VariantController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $perPage = $request->input('per_page', 15);
+        $perPage = $request->input('per_page', $this->PER_PAGE);
         $search = $request->input('search');
 
         $query = \Arkenstone\Core\ECommerce\Stock\Models\Variant::query()

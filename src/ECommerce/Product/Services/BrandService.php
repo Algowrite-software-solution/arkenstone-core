@@ -13,14 +13,30 @@ use Illuminate\Support\Str;
 
 class BrandService implements BrandServiceInterface
 {
+    public int $PER_PAGE;
+    public string $ORDER;
+
+    public function __construct()
+    {
+        $this->PER_PAGE = config('arkenstone.api_defaults.per_page', 100000000);
+        $this->ORDER = config('arkenstone.api_defaults.order', 'desc');
+    }
+
     public function getName(): string
     {
         return "Brand Service";
     }
 
-    public function getAllBrands(): Collection
+    public function getAllBrands($filters = []): Collection
     {
-        return Brand::orderBy('created_at', 'desc')->get();
+        $query = Brand::query();
+
+        $query->when(
+            !($filters['with_inactive'] ?? false),
+            fn($q) => $q->where('is_active', true)
+        );
+
+        return $query->orderBy('created_at', $this->ORDER)->get();
     }
 
     public function getBrandById(int $id): ?Brand
@@ -119,7 +135,14 @@ class BrandService implements BrandServiceInterface
 
     public function queryBrands(array $filters): LengthAwarePaginator
     {
-        return Brand::latest()->paginate($filters['limit'] ?? 15);
+        $query = Brand::query();
+
+        $query->when(
+            !($filters['with_inactive'] ?? false),
+            fn($q) => $q->where('is_active', true)
+        );
+
+        return $query->orderBy('created_at', $this->ORDER)->paginate($filters['per_page'] ?? $this->PER_PAGE);
     }
 
 

@@ -6,6 +6,7 @@ use Arkenstone\Core\ECommerce\Contracts\TaxonomyTypeServiceInterface;
 use Arkenstone\Core\ECommerce\Enum\APIDefaults;
 use Arkenstone\Core\ECommerce\Product\Models\TaxonomyType;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Str;
 
 class TaxonomyTypeService implements TaxonomyTypeServiceInterface
 {
@@ -53,11 +54,13 @@ class TaxonomyTypeService implements TaxonomyTypeServiceInterface
 
     public function createType(array $data): TaxonomyType
     {
+        $data['slug'] = isset($data["slug"]) && !empty($data["slug"]) ? $data["slug"] : Str::slug($data["name"]);
         return TaxonomyType::create($data);
     }
 
     public function updateType(TaxonomyType $type, array $data): TaxonomyType
     {
+        $data['slug'] = isset($data["slug"]) && !empty($data["slug"]) ? $data["slug"] : Str::slug($data["name"]);
         $type->update($data);
         return $type->fresh();
     }

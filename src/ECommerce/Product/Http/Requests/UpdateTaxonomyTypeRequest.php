@@ -21,10 +21,10 @@ class UpdateTaxonomyTypeRequest extends FormRequest
     public function rules(): array
     {
         $taxonomyTypeId = $this->route('taxonomyType') ? $this->route('taxonomyType')->id : null;
-        
+
         return [
             'name' => 'sometimes|required|string|max:255|unique:taxonomy_types,name,' . $taxonomyTypeId,
-            'slug' => 'sometimes|required|string|max:255|unique:taxonomy_types,slug,' . $taxonomyTypeId,
+            'slug' => 'sometimes|nullable|string|max:255|unique:taxonomy_types,slug,' . $taxonomyTypeId,
             'description' => 'sometimes|nullable|string',
             'is_active' => 'sometimes|boolean',
         ];
@@ -41,7 +41,6 @@ class UpdateTaxonomyTypeRequest extends FormRequest
             'name.required' => 'The name field is required.',
             'name.string' => 'The name must be a string.',
             'name.max' => 'The name may not be greater than 255 characters.',
-            'slug.required' => 'The slug field is required.',
             'slug.string' => 'The slug must be a string.',
             'slug.max' => 'The slug may not be greater than 255 characters.',
             'slug.unique' => 'The slug has already been taken.',

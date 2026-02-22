@@ -57,9 +57,6 @@ class BundleService implements BundleServiceInterface
             }
 
             if (isset($data['product_ids'])) {
-                // Sync items: delete existing and add new
-                // Or just add/remove? 'product_ids' usually implies the final state in a sync operation.
-                // Let's assume sync for simplicity unless user requested add/remove specific endpoints.
                 $bundle->items()->delete();
                 $this->addItems($bundle, $data['product_ids']);
             }
