@@ -14,8 +14,13 @@ use Illuminate\Routing\Controller;
 
 class StockController extends Controller
 {
+    public int $PER_PAGE;
+    public string $ORDER;
+
     public function __construct(private StockServiceInterface $stockService)
     {
+        $this->PER_PAGE = config('arkenstone.api_defaults.per_page', 100000000);
+        $this->ORDER = config('arkenstone.api_defaults.order', 'desc');
     }
 
     /**
@@ -23,7 +28,7 @@ class StockController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $perPage = $request->input('per_page', 15);
+        $perPage = $request->input('per_page', $this->PER_PAGE);
         $filters = $request->only([
             'product_id',
             'supplier_id',
@@ -31,7 +36,8 @@ class StockController extends Controller
             'active',
             'low_stock',
             'out_of_stock',
-            'in_stock'
+            'in_stock',
+            'with_inactive'
         ]);
 
         $query = \Arkenstone\Core\ECommerce\Stock\Models\Stock::query()
@@ -59,6 +65,8 @@ class StockController extends Controller
         if (isset($filters['in_stock']) && $filters['in_stock']) {
             $query->inStock();
         }
+
+        
 
         $stocks = $query->paginate($perPage);
 
@@ -207,7 +215,7 @@ class StockController extends Controller
     public function search(Request $request): JsonResponse
     {
         $query = $request->input('search', '');
-        $perPage = $request->input('per_page', 15);
+        $perPage = $request->input('per_page', $this->PER_PAGE);
 
         if (empty($query)) {
             return ResponseProtocol::failed(
@@ -234,7 +242,7 @@ class StockController extends Controller
      */
     public function lowStock(Request $request): JsonResponse
     {
-        $perPage = $request->input('per_page', 15);
+        $perPage = $request->input('per_page', $this->PER_PAGE);
 
         $stocks = \Arkenstone\Core\ECommerce\Stock\Models\Stock::query()
             ->with(['product', 'supplier', 'variationOptions', 'reservations', 'image'])
@@ -254,7 +262,7 @@ class StockController extends Controller
      */
     public function outOfStock(Request $request): JsonResponse
     {
-        $perPage = $request->input('per_page', 15);
+        $perPage = $request->input('per_page', $this->PER_PAGE);
 
         $stocks = \Arkenstone\Core\ECommerce\Stock\Models\Stock::query()
             ->with(['product', 'supplier', 'variationOptions', 'reservations', 'image'])

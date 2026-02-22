@@ -13,8 +13,13 @@ use Illuminate\Routing\Controller;
 
 class SupplierController extends Controller
 {
+    public int $PER_PAGE;
+    public string $ORDER;
+
     public function __construct(private SupplierServiceInterface $supplierService)
     {
+        $this->PER_PAGE = config('arkenstone.api_defaults.per_page', 100000000);
+        $this->ORDER = config('arkenstone.api_defaults.order', 'desc');
     }
 
     /**
@@ -22,7 +27,7 @@ class SupplierController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $perPage = $request->input('per_page', 15);
+        $perPage = $request->input('per_page', $this->PER_PAGE);
         $filters = $request->only(['status', 'active']);
 
         $query = \Arkenstone\Core\ECommerce\Stock\Models\Supplier::query();
@@ -152,7 +157,7 @@ class SupplierController extends Controller
     public function search(Request $request): JsonResponse
     {
         $query = $request->input('search', '');
-        $perPage = $request->input('per_page', 15);
+        $perPage = $request->input('per_page', $this->PER_PAGE);
 
         if (empty($query)) {
             return ResponseProtocol::failed(
