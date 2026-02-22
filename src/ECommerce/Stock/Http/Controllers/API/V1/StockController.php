@@ -36,7 +36,8 @@ class StockController extends Controller
             'active',
             'low_stock',
             'out_of_stock',
-            'in_stock'
+            'in_stock',
+            'with_inactive'
         ]);
 
         $query = \Arkenstone\Core\ECommerce\Stock\Models\Stock::query()
@@ -64,6 +65,8 @@ class StockController extends Controller
         if (isset($filters['in_stock']) && $filters['in_stock']) {
             $query->inStock();
         }
+
+        
 
         $stocks = $query->paginate($perPage);
 

@@ -46,7 +46,7 @@ class TaxonomyService implements TaxonomyServiceInterface
             $q->where('name', 'like', '%' . $filters['search'] . '%');
         }
 
-        return $q->orderBy('created_at', $filters['order'] ?? $this->ORDER)->paginate($filters['per_page'] ?? $this->PER_PAGE);
+        return $q->paginate($filters['per_page'] ?? $this->PER_PAGE);
     }
 
     public function createTaxonomy(array $data): Taxonomy
