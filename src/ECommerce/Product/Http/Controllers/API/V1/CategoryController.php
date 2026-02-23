@@ -32,6 +32,8 @@ class CategoryController extends Controller
     public function index(Request $request): JsonResponse
     {
         $perPage = $request->input('per_page', $this->PER_PAGE);
+        $orderBy = $request->input('order_by', 'created_at');
+        $order = $request->input('order', $this->ORDER);
         $isActive = $request->input('is_active');
         $rootOnly = $request->input('root_only', false);
 
@@ -50,7 +52,7 @@ class CategoryController extends Controller
             fn($q) => $q->where('is_active', true)
         );
 
-        $categories = $query->orderBy('created_at', $this->ORDER)->paginate($perPage);
+        $categories = $query->orderBy($orderBy, $order)->paginate($perPage);
 
         return ResponseProtocol::success(
             new CategoryCollection($categories),
