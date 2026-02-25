@@ -51,7 +51,7 @@ class TaxonomyService implements TaxonomyServiceInterface
 
     public function createTaxonomy(array $data): Taxonomy
     {
-        $data['slug'] = isset($data["slug"]) && !empty($data["slug"]) ? $data["slug"] : Str::slug($data["name"]);
+        $data['slug'] = isset($data["slug"]) && !empty($data["slug"]) ? $data["slug"] : (isset($data["name"]) && !empty($data["name"]) ? Str::slug($data["name"]) : null);
         return DB::transaction(function () use ($data) {
             return Taxonomy::create($data);
         });
@@ -60,6 +60,7 @@ class TaxonomyService implements TaxonomyServiceInterface
     public function updateTaxonomy(Taxonomy $taxonomy, array $data): Taxonomy
     {
         $data['slug'] = isset($data["slug"]) && !empty($data["slug"]) ? $data["slug"] : (isset($data["name"]) && !empty($data["name"]) ? Str::slug($data["name"]) : null);
+
         $taxonomy->update($data);
         return $taxonomy->fresh();
     }
