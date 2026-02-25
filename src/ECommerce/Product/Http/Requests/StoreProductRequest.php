@@ -106,7 +106,7 @@ class StoreProductRequest extends FormRequest
             'category_ids.*.exists' => 'One or more selected categories do not exist.',
             'taxonomy_ids.*.exists' => 'One or more selected taxonomies do not exist.',
             'images.*.file' => 'Each upload must be a valid file.',
-            'images.*.image' => 'Each file must be a valid image.',
+            'images.*.image' => 'Each file must be a valid image. (jpeg, png, webp, gif)',
             'images.*.max' => 'Each image must not exceed the maximum file size.',
             'images.*.mimes' => 'Each image must be a valid format (jpeg, png, webp, gif).',
             'image_alt_texts.*.max' => 'Alt text must not exceed 255 characters.',
