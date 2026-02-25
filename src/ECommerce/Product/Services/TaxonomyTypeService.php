@@ -60,7 +60,9 @@ class TaxonomyTypeService implements TaxonomyTypeServiceInterface
 
     public function updateType(TaxonomyType $type, array $data): TaxonomyType
     {
-        $data['slug'] = isset($data["slug"]) && !empty($data["slug"]) ? $data["slug"] : (isset($data["name"]) && !empty($data["name"]) ? Str::slug($data["name"]) : null);
+        if (isset($data["slug"]) && !empty($data["slug"]) || (isset($data["name"]) && !empty($data["name"]))) {
+            $data['slug'] = isset($data["slug"]) && !empty($data["slug"]) ? $data["slug"] : (isset($data["name"]) && !empty($data["name"]) ? Str::slug($data["name"]) : null);
+        }
         $type->update($data);
         return $type->fresh();
     }
