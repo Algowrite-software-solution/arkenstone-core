@@ -41,7 +41,7 @@ class BundleService implements BundleServiceInterface
                 $this->addItems($bundle->id, $data['product_ids']);
             }
 
-            return $bundle->with('items.product')->refresh();
+            return $bundle->refresh()->load('items.product');
         });
     }
 
@@ -61,7 +61,7 @@ class BundleService implements BundleServiceInterface
                 $this->addItems($bundle->id, $data['product_ids']);
             }
 
-            return $bundle->refresh();
+            return $bundle->refresh()->load('items.product');
         });
     }
 
@@ -77,7 +77,7 @@ class BundleService implements BundleServiceInterface
      */
     public function addItems(int $bundleId, array $productIds): void
     {
-        foreach ($productIds as $productId) {
+        foreach (array_unique($productIds) as $productId) {
             $childProduct = Product::find($productId);
             if (!$childProduct) {
                 continue;
