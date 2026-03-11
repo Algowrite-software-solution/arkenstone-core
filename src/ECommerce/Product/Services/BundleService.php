@@ -38,7 +38,7 @@ class BundleService implements BundleServiceInterface
             $bundle = Bundle::create(['name' => $data['name']]);
 
             if (!empty($data['product_ids'])) {
-                $this->addItems($bundle, $data['product_ids']);
+                $this->addItems($bundle->id, $data['product_ids']);
             }
 
             return $bundle->with('items.product')->refresh();
@@ -58,7 +58,7 @@ class BundleService implements BundleServiceInterface
 
             if (isset($data['product_ids'])) {
                 $bundle->items()->delete();
-                $this->addItems($bundle, $data['product_ids']);
+                $this->addItems($bundle->id, $data['product_ids']);
             }
 
             return $bundle->refresh();
