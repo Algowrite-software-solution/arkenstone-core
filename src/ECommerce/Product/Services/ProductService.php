@@ -64,7 +64,7 @@ class ProductService implements ProductServiceInterface
 
       $query = Product::query()->with($relationsToLoad)->when(
          !($filters['with_inactive'] ?? false),
-         fn($q) => $q->where('is_active', true)
+      fn($q) => $q->where('is_active', true)
       );
 
       $filter = new ProductFilter($query, $filters); // filter the query based on the provided filters
@@ -173,7 +173,7 @@ class ProductService implements ProductServiceInterface
          // Delete Specified images by URL
          if (!empty($deleteImageUrls)) {
             foreach ($deleteImageUrls as $imageUrl) {
-               // #TODO : check the actual file locatoin in the local drive and if it was under product directory, delete it
+            // #TODO : check the actual file locatoin in the local drive and if it was under product directory, delete it
             }
          }
 
@@ -227,7 +227,8 @@ class ProductService implements ProductServiceInterface
          foreach ($product->images as $image) {
             try {
                Storage::disk('products')->delete($image->url);
-            } catch (\Throwable $e) {
+            }
+            catch (\Throwable $e) {
                Log::warning("Failed to delete image file: {$image->url}");
             }
          }
@@ -247,7 +248,8 @@ class ProductService implements ProductServiceInterface
          }
 
          return $result;
-      } catch (\Throwable $th) {
+      }
+      catch (\Throwable $th) {
          DB::rollBack();
          Log::error("Product deletion failed: " . $th->getMessage());
          return false;
@@ -276,7 +278,8 @@ class ProductService implements ProductServiceInterface
                // Store the file and get its relative path
                if ($useUniqueFilenames) {
                   $storedPath = $imageFile->store($path, $disk);
-               } else {
+               }
+               else {
                   $originalName = $imageFile->getClientOriginalName();
                   $storedPath = $imageFile->storeAs($path, $originalName, $disk);
                }
