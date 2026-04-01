@@ -5,16 +5,16 @@ return [
     'default_prefix' => env('ARKENSTONE_CORE_PREFIX', '[ARKENSTONE_CORE]'),
 
     /*
-    |--------------------------------------------------------------------------
-    | Product Image Storage Configuration
-    |--------------------------------------------------------------------------
-    */
+     |--------------------------------------------------------------------------
+     | Product Image Storage Configuration
+     |--------------------------------------------------------------------------
+     */
     'product_images' => [
         // Storage disk (matches config/filesystems.php disks)
         'disk' => env('ARKENSTONE_IMAGE_DISK', 'public'),
 
         // Base path within the disk
-        'path' => env('ARKENSTONE_IMAGE_PATH', 'products/images'),
+        'path' => env('ARKENSTONE_IMAGE_PATH', 'images'),
 
         // Maximum file size in KB
         'max_size' => env('ARKENSTONE_IMAGE_MAX_SIZE', 5120), // 5MB
@@ -33,10 +33,10 @@ return [
     ],
 
     /*
-    |--------------------------------------------------------------------------
-    | Category Image Storage Configuration
-    |--------------------------------------------------------------------------
-    */
+     |--------------------------------------------------------------------------
+     | Category Image Storage Configuration
+     |--------------------------------------------------------------------------
+     */
     'category_images' => [
         // Storage disk
         'disk' => env('ARKENSTONE_CATEGORY_IMAGE_DISK', 'categories'),
@@ -61,14 +61,12 @@ return [
     ],
 
     /*
-    |--------------------------------------------------------------------------
-    | API Defaults Configuration
-    |--------------------------------------------------------------------------
-    */
+     |--------------------------------------------------------------------------
+     | API Defaults Configuration
+     |--------------------------------------------------------------------------
+     */
     'api_defaults' => [
         'per_page' => 100000,
         'order' => 'desc',
     ],
 ];
-
-

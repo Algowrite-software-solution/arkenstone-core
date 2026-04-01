@@ -28,7 +28,7 @@ class CategoryService implements CategoryServiceInterface
     {
         return Category::orderBy('created_at', $this->ORDER)->when(
             !($filters['with_inactive'] ?? false),
-            fn($q) => $q->where('is_active', true)
+        fn($q) => $q->where('is_active', true)
         )->get();
     }
 
@@ -122,12 +122,15 @@ class CategoryService implements CategoryServiceInterface
         $path = $config['path'] ?? 'categories/images';
         $useUniqueFilenames = $config['unique_filenames'] ?? true;
 
+
+        // Applied for both single image uplaods and arrya of images. for array of images the first element item will be selected
         if ($image instanceof \Illuminate\Http\UploadedFile || (is_array($image) && isset($image[0]) && $image[0] instanceof \Illuminate\Http\UploadedFile)) {
             $file = is_array($image) ? $image[0] : $image;
             $storedPath = null;
             if ($useUniqueFilenames) {
                 $storedPath = $file->store($path, $disk);
-            } else {
+            }
+            else {
                 $originalName = $file->getClientOriginalName();
                 $storedPath = $file->storeAs($path, $originalName, $disk);
             }
