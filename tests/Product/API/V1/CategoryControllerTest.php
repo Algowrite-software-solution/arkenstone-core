@@ -88,7 +88,7 @@ class CategoryControllerTest extends TestCase
         $response = $this->postJson('/api/v1/categories', []);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['name', 'slug']);
+            ->assertJsonValidationErrors(['name']);
     }
 
     /** @test */

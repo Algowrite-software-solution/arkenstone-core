@@ -22,14 +22,30 @@ class UpdateCategoryRequest extends FormRequest
     public function rules(): array
     {
         $categoryId = $this->route('category') ?? $this->route('id');
+        $config = config('arkenstone.category_images') ?? [];
+        $maxSize = $config['max_size'] ?? 5120;
+        $allowedMimes = $this->extractMimeExtensions($config['allowed_types'] ?? ['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+        $mimeString = implode(',', $allowedMimes);
 
-        return [
+        $rules = [
             'name' => ['sometimes', 'required', 'string', 'max:255', 'unique:categories,name,' . $categoryId],
             'slug' => ['nullable', 'string', 'max:255', 'unique:categories,slug,' . $categoryId],
             'description' => ['nullable', 'string'],
             'parent_id' => ['nullable', 'integer', 'exists:categories,id', 'not_in:' . $categoryId],
             'is_active' => ['nullable', 'boolean'],
+            'alt_text' => ['nullable', 'string', 'max:255'],
         ];
+
+        if ($this->hasFile('image')) {
+            if (is_array($this->file('image'))) {
+                $rules['image'] = ['sometimes', 'array'];
+                $rules['image.*'] = ['file', 'image', 'max:' . $maxSize, 'mimes:' . $mimeString];
+            } else {
+                $rules['image'] = ['sometimes', 'file', 'image', 'max:' . $maxSize, 'mimes:' . $mimeString];
+            }
+        }
+
+        return $rules;
     }
 
     /**
@@ -44,6 +60,44 @@ class UpdateCategoryRequest extends FormRequest
             'slug.unique' => 'This slug is already in use.',
             'parent_id.exists' => 'The selected parent category does not exist.',
             'parent_id.not_in' => 'A category cannot be its own parent.',
+            'image.file' => 'The upload must be a valid file.',
+            'image.image' => 'The file must be a valid image.',
+            'image.max' => 'The image must not exceed the maximum file size.',
+            'image.mimes' => 'The image must be a valid format.',
+            'image.*.file' => 'Each upload must be a valid file.',
+            'image.*.image' => 'Each file must be a valid image.',
+            'image.*.max' => 'Each image must not exceed the maximum file size.',
+            'image.*.mimes' => 'Each image must be a valid format.',
         ];
+    }
+
+    /**
+     * Extract file extensions from MIME types.
+     *
+     * @param array $mimeTypes
+     * @return array
+     */
+    private function extractMimeExtensions(array $mimeTypes): array
+    {
+        $extensions = [];
+        $mimeMap = [
+            'image/jpeg' => 'jpeg',
+            'image/jpg' => 'jpg',
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            'image/gif' => 'gif',
+        ];
+
+        foreach ($mimeTypes as $mime) {
+            if (isset($mimeMap[$mime])) {
+                $extensions[] = $mimeMap[$mime];
+            }
+        }
+
+        if (in_array('jpeg', $extensions) && !in_array('jpg', $extensions)) {
+            $extensions[] = 'jpg';
+        }
+
+        return array_unique($extensions);
     }
 }

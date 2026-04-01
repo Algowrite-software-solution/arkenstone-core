@@ -34,6 +34,34 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Category Image Storage Configuration
+    |--------------------------------------------------------------------------
+    */
+    'category_images' => [
+        // Storage disk
+        'disk' => env('ARKENSTONE_CATEGORY_IMAGE_DISK', 'categories'),
+
+        // Base path within the disk
+        'path' => env('ARKENSTONE_CATEGORY_IMAGE_PATH', 'categories/images'),
+
+        // Maximum file size in KB
+        'max_size' => env('ARKENSTONE_CATEGORY_IMAGE_MAX_SIZE', 5120), // 5MB
+
+        // Allowed MIME types
+        'allowed_types' => ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+
+        // Generate unique filenames (prevents overwrites)
+        'unique_filenames' => true,
+
+        // Image optimization settings
+        'optimize' => [
+            'enabled' => env('ARKENSTONE_CATEGORY_IMAGE_OPTIMIZE', true),
+            'quality' => 85, // JPEG quality
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | API Defaults Configuration
     |--------------------------------------------------------------------------
     */

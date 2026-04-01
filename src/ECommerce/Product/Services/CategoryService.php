@@ -40,6 +40,16 @@ class CategoryService implements CategoryServiceInterface
     public function createCategory(array $data): Category
     {
         $data['slug'] = $data['slug'] ?? Str::slug($data['name']);
+
+        $storedPath = null;
+        if (!empty($data['image'])) {
+            $storedPath = $this->addImage($data['image']);
+        }
+
+        if ($storedPath) {
+            $data['image_url'] = $storedPath;
+        }
+
         return Category::create($data);
     }
 
@@ -53,6 +63,19 @@ class CategoryService implements CategoryServiceInterface
             return false;
         }
 
+        $storedPath = null;
+        if (!empty($data['image'])) {
+            $storedPath = $this->addImage($data['image']);
+        }
+
+        if ($storedPath) {
+            // Delete old image if it exists
+            if (!empty($category->image_url)) {
+                $this->deleteImage($category->image_url);
+            }
+            $data['image_url'] = $storedPath;
+        }
+
         return $category->update($data);
     }
 
@@ -62,6 +85,10 @@ class CategoryService implements CategoryServiceInterface
 
         if (!$category) {
             return false;
+        }
+
+        if (!empty($category->image_url)) {
+            $this->deleteImage($category->image_url);
         }
 
         return $category->delete();
@@ -86,5 +113,41 @@ class CategoryService implements CategoryServiceInterface
     public function getRootCategories(): Collection
     {
         return Category::whereNull('parent_id')->get();
+    }
+
+    public function addImage($image): ?string
+    {
+        $config = config('arkenstone.category_images');
+        $disk = $config['disk'] ?? 'categories';
+        $path = $config['path'] ?? 'categories/images';
+        $useUniqueFilenames = $config['unique_filenames'] ?? true;
+
+        if ($image instanceof \Illuminate\Http\UploadedFile || (is_array($image) && isset($image[0]) && $image[0] instanceof \Illuminate\Http\UploadedFile)) {
+            $file = is_array($image) ? $image[0] : $image;
+            $storedPath = null;
+            if ($useUniqueFilenames) {
+                $storedPath = $file->store($path, $disk);
+            } else {
+                $originalName = $file->getClientOriginalName();
+                $storedPath = $file->storeAs($path, $originalName, $disk);
+            }
+
+            return $storedPath;
+        }
+
+        return null;
+    }
+
+    public function deleteImage(string $path): bool
+    {
+        $config = config('arkenstone.category_images');
+        $disk = $config['disk'] ?? 'categories';
+
+        // Delete the physical file from storage.
+        if (\Illuminate\Support\Facades\Storage::disk($disk)->exists($path)) {
+            return \Illuminate\Support\Facades\Storage::disk($disk)->delete($path);
+        }
+
+        return false;
     }
 }

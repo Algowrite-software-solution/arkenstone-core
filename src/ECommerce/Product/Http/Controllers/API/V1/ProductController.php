@@ -31,7 +31,8 @@ class ProductController extends Controller
         // Convert category_ids string to array if needed
         if (!empty($filters['category_ids']) && !is_array($filters['category_ids'])) {
             $filters['categories'] = explode(',', $filters['category_ids']);
-        } elseif (!empty($filters['category_ids'])) {
+        }
+        elseif (!empty($filters['category_ids'])) {
             $filters['categories'] = $filters['category_ids'];
         }
 
@@ -39,14 +40,16 @@ class ProductController extends Controller
         // Convert taxonomy_ids string to array if needed
         if (!empty($filters['taxonomy_ids']) && !is_array($filters['taxonomy_ids'])) {
             $filters['taxonomies'] = explode(',', $filters['taxonomy_ids']);
-        } elseif (!empty($filters['taxonomy_ids'])) {
+        }
+        elseif (!empty($filters['taxonomy_ids'])) {
             $filters['taxonomies'] = $filters['taxonomy_ids'];
         }
 
 
         if (!empty($filters['brand_ids']) && !is_array($filters['brand_ids'])) {
             $filters['brands'] = explode(',', $filters['brand_ids']);
-        } elseif (!empty($filters['brand_ids'])) {
+        }
+        elseif (!empty($filters['brand_ids'])) {
             $filters['brands'] = $filters['brand_ids'];
         }
 
@@ -77,9 +80,17 @@ class ProductController extends Controller
     /**
      * Display the specified product.
      */
-    public function show(int $id): JsonResponse
+    public function show(int $id, Request $request): JsonResponse
     {
-        $product = $this->productService->find($id, ['brand', 'categories', 'taxonomies', 'images', 'primaryImage']);
+        $request->validate([
+            'with' => 'array|nullable|sometimes',
+            'with.*' => 'string',
+        ]);
+
+
+        $with = $request->input('with', []);
+
+        $product = $this->productService->find($id, $with);
 
         if (!$product) {
             return ResponseProtocol::failed(
