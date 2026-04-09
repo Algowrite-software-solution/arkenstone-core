@@ -96,7 +96,7 @@ class CategoryService implements CategoryServiceInterface
 
     public function getActiveCategories(): Collection
     {
-        return Category::where('is_active', true)->get();
+        return Category::orderBy('created_at', $this->ORDER)->where('is_active', true)->get();
     }
 
     public function getCategoryChildren(int $id): Collection

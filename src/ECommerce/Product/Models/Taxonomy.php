@@ -3,6 +3,7 @@
 namespace Arkenstone\Core\ECommerce\Product\Models;
 
 use Arkenstone\Core\Database\Factories\TaxonomyFactory;
+use Arkenstone\Core\ECommerce\Product\Scopes\ActiveScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -31,6 +32,11 @@ class Taxonomy extends Model
         'meta' => 'array',
     ];
 
+    protected static function booted()
+    {
+        static::addGlobalScope(new ActiveScope());
+    }
+
     /**
      * Get the taxonomy type that owns the taxonomy.
      */
@@ -48,11 +54,21 @@ class Taxonomy extends Model
     }
 
     /**
+     * Get the cateogires belong to this taxonomy
+     */
+    public function categories()
+    {
+        return $this->belongsToMany(Category::class)
+            ->using(CategoryTaxonomy::class)
+            ->withTimestamps();
+    }
+
+    /**
      * Get the parent taxonomy.
      */
     public function parent(): BelongsTo
     {
-        return $this->belongsTo(Taxonomy::class, 'parent_id');
+        return $this->belongsTo(Taxonomy::class , 'parent_id');
     }
 
     /**
@@ -60,7 +76,7 @@ class Taxonomy extends Model
      */
     public function children(): HasMany
     {
-        return $this->hasMany(Taxonomy::class, 'parent_id');
+        return $this->hasMany(Taxonomy::class , 'parent_id');
     }
 
     /**
@@ -68,7 +84,7 @@ class Taxonomy extends Model
      */
     public function products(): BelongsToMany
     {
-        return $this->belongsToMany(Product::class, 'product_taxonomies')->withTimestamps();
+        return $this->belongsToMany(Product::class , 'product_taxonomies')->withTimestamps();
     }
 
     // Query scopes
@@ -92,6 +108,6 @@ class Taxonomy extends Model
      */
     protected static function newFactory(): Factory
     {
-        return TaxonomyFactory::new();
+        return TaxonomyFactory::new ();
     }
 }

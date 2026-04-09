@@ -27,7 +27,7 @@ class TaxonomyService implements TaxonomyServiceInterface
 
         $q->when(
             !($filters['with_inactive'] ?? false),
-            fn($q) => $q->where('is_active', true)
+        fn($q) => $q->where('is_active', true)
         );
 
         if (isset($filters['taxonomy_type_id'])) {
@@ -51,7 +51,7 @@ class TaxonomyService implements TaxonomyServiceInterface
 
     public function createTaxonomy(array $data): Taxonomy
     {
-        $data['slug'] = isset($data["slug"]) && !empty($data["slug"]) ? $data["slug"] : (isset($data["name"]) && !empty($data["name"]) ? Str::slug($data["name"]) : null);
+        $data['slug'] = isset($data["slug"]) && !empty($data["slug"]) ? $data["slug"] : (isset($data["name"]) && !empty($data["name"]) ?Str::slug($data["name"]) : null);
         return DB::transaction(function () use ($data) {
             return Taxonomy::create($data);
         });
@@ -60,7 +60,7 @@ class TaxonomyService implements TaxonomyServiceInterface
     public function updateTaxonomy(Taxonomy $taxonomy, array $data): Taxonomy
     {
         if (isset($data["slug"]) && !empty($data["slug"]) || (isset($data["name"]) && !empty($data["name"]))) {
-            $data['slug'] = isset($data["slug"]) && !empty($data["slug"]) ? $data["slug"] : (isset($data["name"]) && !empty($data["name"]) ? Str::slug($data["name"]) : null);
+            $data['slug'] = isset($data["slug"]) && !empty($data["slug"]) ? $data["slug"] : (isset($data["name"]) && !empty($data["name"]) ?Str::slug($data["name"]) : null);
         }
 
         $taxonomy->update($data);
