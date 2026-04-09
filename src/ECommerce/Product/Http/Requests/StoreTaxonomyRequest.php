@@ -29,7 +29,7 @@ class StoreTaxonomyRequest extends FormRequest
             'description' => ['nullable', 'string'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'meta' => ['nullable', 'array'],
-            'is_active' => ['nullable', 'boolean'],
+            'is_active' => ['sometimes', 'nullable', 'boolean'],
         ];
     }
 
