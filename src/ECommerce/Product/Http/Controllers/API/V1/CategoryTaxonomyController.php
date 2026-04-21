@@ -41,9 +41,7 @@ class CategoryTaxonomyController extends Controller
 
         $this->categoryTaxonomyService->syncForCategory($category, $request->taxonomy_ids);
 
-        return response()->json([
-            'message' => 'Category taxonomies synced successfully',
-        ]);
+        return ResponseProtocol::success('Category taxonomies synced successfully');
     }
 
     /**
@@ -60,9 +58,7 @@ class CategoryTaxonomyController extends Controller
 
         $this->categoryTaxonomyService->attachToCategory($category, $request->taxonomy_ids);
 
-        return response()->json([
-            'message' => 'Taxonomies attached successfully',
-        ]);
+        return ResponseProtocol::success('Taxonomies attached successfully');
     }
 
     /**
@@ -75,9 +71,7 @@ class CategoryTaxonomyController extends Controller
 
         $this->categoryTaxonomyService->detachFromCategory($category, $taxonomy);
 
-        return response()->json([
-            'message' => 'Taxonomy detached successfully',
-        ]);
+        return ResponseProtocol::success('Taxonomy detached successfully');
     }
 
     /**
@@ -89,7 +83,7 @@ class CategoryTaxonomyController extends Controller
 
         $taxonomies = $this->categoryTaxonomyService->getCategoryTaxonomies($category);
 
-        return response()->json($taxonomies);
+        return ResponseProtocol::success($taxonomies, "Category taxonomies retrieved successfully");
     }
 
     /**
@@ -106,6 +100,6 @@ class CategoryTaxonomyController extends Controller
 
         $categories = $this->categoryTaxonomyService->getCategoriesByTaxonomy($taxonomy, $request->with ?? []);
 
-        return response()->json($categories);
+        return ResponseProtocol::success($categories, "Categories retrieved successfully");
     }
 }

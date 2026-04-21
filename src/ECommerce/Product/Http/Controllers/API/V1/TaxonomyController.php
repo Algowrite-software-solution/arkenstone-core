@@ -103,4 +103,30 @@ class TaxonomyController extends Controller
             "Taxonomies filtered by type retrieved successfully."
         );
     }
+
+    /**
+     * Get children of a specific taxonomy.
+     */
+    public function children(int $id): JsonResponse
+    {
+        $children = $this->taxonomyService->getTaxonomyChildren($id);
+
+        return ResponseProtocol::success(
+            TaxonomyResource::collection($children),
+            'Taxonomy children retrieved successfully'
+        );
+    }
+
+    /**
+     * Get root taxonomies (no parent).
+     */
+    public function roots(): JsonResponse
+    {
+        $rootTaxonomies = $this->taxonomyService->getRootTaxonomies();
+
+        return ResponseProtocol::success(
+            TaxonomyResource::collection($rootTaxonomies),
+            'Root taxonomies retrieved successfully'
+        );
+    }
 }

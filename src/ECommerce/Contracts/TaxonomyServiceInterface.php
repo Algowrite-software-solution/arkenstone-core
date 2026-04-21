@@ -15,4 +15,6 @@ interface TaxonomyServiceInterface
     public function updateTaxonomy(Taxonomy $taxonomy, array $data): Taxonomy;
     public function deleteTaxonomy(Taxonomy $taxonomy): bool;
     public function getActiveTaxonomies();
+    public function getTaxonomyChildren(int $id): Collection;
+    public function getRootTaxonomies(): Collection;
 }

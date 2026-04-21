@@ -4,6 +4,7 @@ namespace Arkenstone\Core\ECommerce\Product\Services;
 
 use Arkenstone\Core\ECommerce\Contracts\TaxonomyServiceInterface;
 use Arkenstone\Core\ECommerce\Product\Models\Taxonomy;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -29,6 +30,7 @@ class TaxonomyService implements TaxonomyServiceInterface
             !($filters['with_inactive'] ?? false),
         fn($q) => $q->where('is_active', true)
         );
+
 
         if (isset($filters['taxonomy_type_id'])) {
             $q->where('taxonomy_type_id', $filters['taxonomy_type_id']);
