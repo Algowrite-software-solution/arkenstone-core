@@ -98,6 +98,11 @@ class Taxonomy extends Model
         return $query->where('is_active', true);
     }
 
+    public function scopeWithInactive($query)
+    {
+        return $query->withoutGlobalScope(ActiveScope::class);
+    }
+
     public function scopeFilterByName($query, string $name)
     {
         return $query->where('name', 'like', '%' . $name . '%');

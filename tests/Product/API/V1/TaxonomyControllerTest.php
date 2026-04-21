@@ -173,7 +173,43 @@ class TaxonomyControllerTest extends TestCase
         $response->assertStatus(200)
             ->assertJson(['status' => 'success']);
 
-        $this->assertCount(3, $response->json('data'));
+        $this->assertCount(3, $response->json('data.data'));
+    }
+
+    /** @test */
+    public function it_can_get_root_taxonomies()
+    {
+        $type = TaxonomyType::factory()->create();
+        $parent = Taxonomy::factory()->create(['taxonomy_type_id' => $type->id, 'parent_id' => null]);
+        Taxonomy::factory()->create(['taxonomy_type_id' => $type->id, 'parent_id' => $parent->id]);
+
+        $response = $this->getJson('/api/v1/taxonomies/roots');
+
+        $response->assertStatus(200)
+            ->assertJson(['status' => 'success']);
+
+        // Since other tests might have created taxonomies, we just check if our parent is there
+        $ids = collect($response->json('data'))->pluck('id');
+        $this->assertTrue($ids->contains($parent->id));
+        
+        // Ensure child is not in roots
+        $this->assertCount(1, $response->json('data'));
+    }
+
+    /** @test */
+    public function it_can_get_taxonomy_children()
+    {
+        $type = TaxonomyType::factory()->create();
+        $parent = Taxonomy::factory()->create(['taxonomy_type_id' => $type->id]);
+        $child = Taxonomy::factory()->create(['taxonomy_type_id' => $type->id, 'parent_id' => $parent->id]);
+
+        $response = $this->getJson("/api/v1/taxonomies/{$parent->id}/children");
+
+        $response->assertStatus(200)
+            ->assertJson(['status' => 'success']);
+
+        $this->assertCount(1, $response->json('data'));
+        $this->assertEquals($child->id, $response->json('data.0.id'));
     }
 
     /** @test */
@@ -184,6 +220,6 @@ class TaxonomyControllerTest extends TestCase
         $response = $this->getJson('/api/v1/taxonomies/type/' . $taxonomyType->id);
 
         $response->assertStatus(200)
-            ->assertJson(['status' => 'success', 'data' => []]);
+            ->assertJson(['status' => 'success', 'data' => ['data' => []]]);
     }
 }

@@ -37,7 +37,7 @@ class CategoryController extends Controller
         $isActive = $request->input('is_active');
         $rootOnly = $request->input('root_only', false);
 
-        $query = Category::query()->with(['parent', 'children']);
+        $query = Category::query()->with(['parent', 'children', 'taxonomies']);
 
         if ($isActive !== null) {
             $query->where('is_active', filter_var($isActive, FILTER_VALIDATE_BOOLEAN));
@@ -49,7 +49,7 @@ class CategoryController extends Controller
 
         $query->when(
             !($request->input('with_inactive') ?? false),
-            fn($q) => $q->where('is_active', true)
+        fn($q) => $q->where('is_active', true)
         );
 
         $categories = $query->orderBy($orderBy, $order)->paginate($perPage);
@@ -69,7 +69,7 @@ class CategoryController extends Controller
 
         $category = $this->categoryService->createCategory($validated);
 
-        $category->load(['parent', 'children']);
+        $category->load(['parent', 'children', 'taxonomies']);
 
         return ResponseProtocol::success(
             new CategoryResource($category),
@@ -83,7 +83,7 @@ class CategoryController extends Controller
      */
     public function show(int $id): JsonResponse
     {
-        $category = Category::with(['parent', 'children'])->find($id);
+        $category = Category::with(['parent', 'children', 'taxonomies'])->find($id);
 
         if (!$category) {
             return ResponseProtocol::failed(
@@ -116,7 +116,7 @@ class CategoryController extends Controller
             );
         }
 
-        $category = Category::with(['parent', 'children'])->find($id);
+        $category = Category::with(['parent', 'children', 'taxonomies'])->find($id);
 
         return ResponseProtocol::success(
             new CategoryResource($category),

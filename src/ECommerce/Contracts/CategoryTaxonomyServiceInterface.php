@@ -11,6 +11,6 @@ interface CategoryTaxonomyServiceInterface
     public function syncForCategory(Category $category, array $taxonomyIds): void;
     public function detachFromCategory(Category $category, Taxonomy $taxonomy): void;
 
-    public function getCategoryTaxonomies(Category $category, ?int $typeId = null);
+    public function getCategoryTaxonomies(Category $category);
     public function getCategoriesByTaxonomy(Taxonomy $taxonomy, array $with = []);
 }

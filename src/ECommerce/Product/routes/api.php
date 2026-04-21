@@ -30,6 +30,8 @@ Route::prefix('api/v1')->middleware('api')->group(function () {
     Route::apiResource('categories', V1\CategoryController::class);
 
     // Taxonomies
+    Route::get('taxonomies/roots', [V1\TaxonomyController::class , 'roots'])->name('taxonomies.roots');
+    Route::get('taxonomies/{id}/children', [V1\TaxonomyController::class , 'children'])->name('taxonomies.children');
     Route::get('taxonomies/type/{typeId}', [V1\TaxonomyController::class , 'byType'])->name('taxonomies.by-type');
     Route::apiResource('taxonomies', V1\TaxonomyController::class);
 
@@ -54,9 +56,10 @@ Route::prefix('api/v1')->middleware('api')->group(function () {
     Route::post('products/taxonomies/detach', [V1\ProductTaxonomyController::class , 'detach'])->name('products.taxonomies.detach');
 
     // Category Taxonomies
-    Route::get('category-taxonomies', [V1\CategoryTaxonomyController::class , 'index'])->name('category-taxonomies.index');
-    Route::post('category-taxonomies/attach', [V1\CategoryTaxonomyController::class , 'attach'])->name('category-taxonomies.attach');
-    Route::post('category-taxonomies/sync', [V1\CategoryTaxonomyController::class , 'sync'])->name('category-taxonomies.sync');
-    Route::post('category-taxonomies/detach', [V1\CategoryTaxonomyController::class , 'detach'])->name('category-taxonomies.detach');
+    Route::post('category-taxonomies/sync/{category}', [V1\CategoryTaxonomyController::class , 'syncCategoryTaxonomies'])->name('category-taxonomies.sync');
+    Route::post('category-taxonomies/attach/{category}', [V1\CategoryTaxonomyController::class , 'attachTaxonomies'])->name('category-taxonomies.attach');
+    Route::post('category-taxonomies/detach/{category}/{taxonomy}', [V1\CategoryTaxonomyController::class , 'detachTaxonomy'])->name('category-taxonomies.detach');
+    Route::get('category-taxonomies/{category}/taxonomies', [V1\CategoryTaxonomyController::class , 'getCategoryTaxonomies'])->name('category-taxonomies.get-by-category');
+    Route::get('category-taxonomies/{taxonomy}/categories', [V1\CategoryTaxonomyController::class , 'getCategoriesByTaxonomy'])->name('category-taxonomies.get-by-taxonomy');
 
 });
