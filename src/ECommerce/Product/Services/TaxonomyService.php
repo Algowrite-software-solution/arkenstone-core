@@ -51,6 +51,13 @@ class TaxonomyService implements TaxonomyServiceInterface
         return $q->paginate($filters['per_page'] ?? $this->PER_PAGE);
     }
 
+    public function getTaxonomyChildren(int $id): Collection
+    {
+        $q = Taxonomy::query()->with(['type', 'parent', 'children']);
+        $q->where('parent_id', $id);
+        return $q->get();
+    }
+
     public function createTaxonomy(array $data): Taxonomy
     {
         $data['slug'] = isset($data["slug"]) && !empty($data["slug"]) ? $data["slug"] : (isset($data["name"]) && !empty($data["name"]) ?Str::slug($data["name"]) : null);
