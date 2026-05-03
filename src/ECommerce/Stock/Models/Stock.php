@@ -105,7 +105,7 @@ class Stock extends Model
      */
     public function isAvailable(): bool
     {
-        return $this->quantity_available > 0 && $this->status === StockStatus::ACTIVE->value && !$this->trashed();
+        return $this->quantity_available > 0 && $this->status === StockStatus::ACTIVE->value;
     }
 
     /**

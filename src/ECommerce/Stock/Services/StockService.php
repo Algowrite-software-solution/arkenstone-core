@@ -181,12 +181,12 @@ class StockService implements StockServiceInterface
         $stock = Stock::findOrFail($stockId);
 
         // Check if stock is active and not soft deleted
-        if ($stock->status !== 'active' || $stock->trashed()) {
+        if ($stock->status !== 'active') {
             return [
                 'available' => false,
                 'quantity_available' => 0,
                 'stock' => $stock,
-                'reason' => $stock->trashed() ? 'Stock is deleted' : 'Stock is inactive',
+                'reason' => 'Stock is inactive',
             ];
         }
 
