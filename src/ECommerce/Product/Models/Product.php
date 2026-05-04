@@ -28,6 +28,7 @@ class Product extends Model implements ProductContract
         'details',
         'price',
         'sku',
+        'meta',
         'quantity',
         'discount_type',
         'discount_value',

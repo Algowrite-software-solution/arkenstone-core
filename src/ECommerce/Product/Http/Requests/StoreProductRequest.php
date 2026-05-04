@@ -61,6 +61,7 @@ class StoreProductRequest extends FormRequest
             'discount_type' => ['sometimes', 'nullable', 'in:percentage,fixed_amount'],
             'discount_value' => ['sometimes', 'nullable', 'numeric', 'min:0', 'required_with:discount_type'],
             'sku' => ['sometimes', 'nullable', 'string', 'max:100', 'unique:products,sku'],
+            'meta' => ['sometimes', 'nullable'],
             'quantity' => ['sometimes', 'nullable', 'integer', 'min:0'],
             'brand_id' => ['sometimes', 'nullable', 'integer', 'exists:brands,id'],
             'is_active' => ['sometimes', 'boolean'],

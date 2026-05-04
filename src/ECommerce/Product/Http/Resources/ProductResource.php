@@ -28,6 +28,7 @@ class ProductResource extends JsonResource
             'sale_price' => $this->sale_price,
             'has_discount' => $this->hasDiscount(),
             'sku' => $this->sku,
+            'meta' => $this->meta ?? null,
             'quantity' => $this->quantity,
             'is_active' => $this->is_active,
             'brand' => new BrandResource($this->whenLoaded('brand')),
