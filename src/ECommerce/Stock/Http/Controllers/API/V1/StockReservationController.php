@@ -254,7 +254,7 @@ class StockReservationController extends Controller
     {
         $request->validate([
             'reference_type' => 'required|string|in:cart,order',
-            'reference_id' => 'required|integer',
+            'reference_id' => 'required|string',
         ]);
 
         $reservations = $this->reservationService->getReservationsByReference(

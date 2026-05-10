@@ -26,7 +26,7 @@ class ReserveStockRequest extends FormRequest
             'stock_id' => ['required', 'integer', 'exists:stocks,id'],
             'quantity' => ['required', 'integer', 'min:1'],
             'reference_type' => ['required', 'string', ReferenceType::validationRule()],
-            'reference_id' => ['required', 'integer'],
+            'reference_id' => ['required', 'string'],
         ];
     }
 

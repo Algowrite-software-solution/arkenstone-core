@@ -64,15 +64,19 @@ Currently, the Stock Module API does not require authentication. For production 
 All responses follow the **ResponseProtocol** format:
 
 ### Success Response
+
 ```json
 {
   "status": "success",
   "message": "Operation completed successfully",
-  "data": { /* response data */ }
+  "data": {
+    /* response data */
+  }
 }
 ```
 
 ### Error Response
+
 ```json
 {
   "status": "error",
@@ -84,12 +88,15 @@ All responses follow the **ResponseProtocol** format:
 ```
 
 ### Paginated Response
+
 ```json
 {
   "status": "success",
   "message": "Data retrieved successfully",
   "data": {
-    "data": [ /* array of items */ ],
+    "data": [
+      /* array of items */
+    ],
     "meta": {
       "current_page": 1,
       "from": 1,
@@ -120,24 +127,26 @@ List all stock records with pagination and filtering.
 
 **Query Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `per_page` | integer | 15 | Items per page (1-100) |
-| `page` | integer | 1 | Page number |
-| `product_id` | integer | - | Filter by product ID |
-| `supplier_id` | integer | - | Filter by supplier ID |
-| `status` | string | - | Filter by status (`active`, `inactive`, `out_of_stock`, `discontinued`) |
-| `active` | boolean | - | Filter active stocks only |
-| `low_stock` | boolean | - | Filter low stock items |
-| `out_of_stock` | boolean | - | Filter out of stock items |
-| `in_stock` | boolean | - | Filter in stock items |
+| Parameter      | Type    | Default | Description                                                             |
+| -------------- | ------- | ------- | ----------------------------------------------------------------------- |
+| `per_page`     | integer | 15      | Items per page (1-100)                                                  |
+| `page`         | integer | 1       | Page number                                                             |
+| `product_id`   | integer | -       | Filter by product ID                                                    |
+| `supplier_id`  | integer | -       | Filter by supplier ID                                                   |
+| `status`       | string  | -       | Filter by status (`active`, `inactive`, `out_of_stock`, `discontinued`) |
+| `active`       | boolean | -       | Filter active stocks only                                               |
+| `low_stock`    | boolean | -       | Filter low stock items                                                  |
+| `out_of_stock` | boolean | -       | Filter out of stock items                                               |
+| `in_stock`     | boolean | -       | Filter in stock items                                                   |
 
 **Example Request:**
+
 ```bash
 GET /api/v1/stocks?per_page=20&supplier_id=5&status=active
 ```
 
 **Example Response:**
+
 ```json
 {
   "status": "success",
@@ -161,16 +170,24 @@ GET /api/v1/stocks?per_page=20&supplier_id=5&status=active
         "status": "active",
         "is_available": true,
         "is_low_stock": false,
-        "product": { /* Product resource */ },
-        "supplier": { /* Supplier resource */ },
+        "product": {
+          /* Product resource */
+        },
+        "supplier": {
+          /* Supplier resource */
+        },
         "variation_options": [],
         "reservations": [],
         "created_at": "2024-12-16T10:00:00.000000Z",
         "updated_at": "2024-12-16T10:00:00.000000Z"
       }
     ],
-    "meta": { /* pagination meta */ },
-    "links": { /* pagination links */ }
+    "meta": {
+      /* pagination meta */
+    },
+    "links": {
+      /* pagination links */
+    }
   }
 }
 ```
@@ -185,16 +202,18 @@ Retrieve a single stock record by ID with all relationships loaded.
 
 **Path Parameters:**
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `id` | integer | Yes | Stock ID |
+| Parameter | Type    | Required | Description |
+| --------- | ------- | -------- | ----------- |
+| `id`      | integer | Yes      | Stock ID    |
 
 **Example Request:**
+
 ```bash
 GET /api/v1/stocks/1
 ```
 
 **Example Response:**
+
 ```json
 {
   "status": "success",
@@ -290,31 +309,35 @@ Create a new stock record.
 
 **Validation Rules:**
 
-| Field | Type | Required | Rules |
-|-------|------|----------|-------|
-| `product_id` | integer | Yes | Must exist in products table |
-| `sku` | string | Yes | Max 100 chars, unique |
-| `barcode` | string | No | Max 100 chars |
-| `price` | decimal | Yes | Min 0 |
-| `cost` | decimal | No | Min 0 |
-| `weight` | decimal | No | Min 0 |
-| `quantity_on_hand` | integer | Yes | Min 0 |
-| `min_stock_level` | integer | No | Min 0 |
-| `supplier_id` | integer | Yes | Must exist in suppliers table |
-| `image_url_id` | integer | No | Must exist in product_images table |
-| `status` | string | No | `active`, `inactive` |
-| `variation_option_ids` | array | No | Each ID must exist in variation_options table |
+| Field                  | Type    | Required | Rules                                         |
+| ---------------------- | ------- | -------- | --------------------------------------------- |
+| `product_id`           | integer | Yes      | Must exist in products table                  |
+| `sku`                  | string  | Yes      | Max 100 chars, unique                         |
+| `barcode`              | string  | No       | Max 100 chars                                 |
+| `price`                | decimal | Yes      | Min 0                                         |
+| `cost`                 | decimal | No       | Min 0                                         |
+| `weight`               | decimal | No       | Min 0                                         |
+| `quantity_on_hand`     | integer | Yes      | Min 0                                         |
+| `min_stock_level`      | integer | No       | Min 0                                         |
+| `supplier_id`          | integer | Yes      | Must exist in suppliers table                 |
+| `image_url_id`         | integer | No       | Must exist in product_images table            |
+| `status`               | string  | No       | `active`, `inactive`                          |
+| `variation_option_ids` | array   | No       | Each ID must exist in variation_options table |
 
 **Example Response:**
+
 ```json
 {
   "status": "success",
   "message": "Stock created successfully",
-  "data": { /* Stock resource */ }
+  "data": {
+    /* Stock resource */
+  }
 }
 ```
 
 **Error Response (422):**
+
 ```json
 {
   "message": "The sku has already been taken.",
@@ -347,15 +370,19 @@ Update an existing stock record.
 Same as Create, but all fields are optional (use `sometimes` instead of `required`).
 
 **Example Response:**
+
 ```json
 {
   "status": "success",
   "message": "Stock updated successfully",
-  "data": { /* Updated Stock resource */ }
+  "data": {
+    /* Updated Stock resource */
+  }
 }
 ```
 
 **Error Response (404):**
+
 ```json
 {
   "status": "error",
@@ -373,6 +400,7 @@ Same as Create, but all fields are optional (use `sometimes` instead of `require
 Soft delete a stock record. Fails if there are active reservations.
 
 **Example Response (200):**
+
 ```json
 {
   "status": "success",
@@ -382,6 +410,7 @@ Soft delete a stock record. Fails if there are active reservations.
 ```
 
 **Error Response (500):**
+
 ```json
 {
   "status": "error",
@@ -402,30 +431,39 @@ Search stocks by SKU, barcode, or product name.
 
 **Query Parameters:**
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `search` | string | Yes | Search query |
-| `per_page` | integer | No | Items per page (default: 15) |
+| Parameter  | Type    | Required | Description                  |
+| ---------- | ------- | -------- | ---------------------------- |
+| `search`   | string  | Yes      | Search query                 |
+| `per_page` | integer | No       | Items per page (default: 15) |
 
 **Example Request:**
+
 ```bash
 GET /api/v1/stocks/search?search=LAPTOP
 ```
 
 **Example Response:**
+
 ```json
 {
   "status": "success",
   "message": "Search results retrieved successfully",
   "data": {
-    "data": [ /* Matching stocks */ ],
-    "meta": { /* pagination */ },
-    "links": { /* pagination links */ }
+    "data": [
+      /* Matching stocks */
+    ],
+    "meta": {
+      /* pagination */
+    },
+    "links": {
+      /* pagination links */
+    }
   }
 }
 ```
 
 **Error Response (400):**
+
 ```json
 {
   "status": "error",
@@ -444,19 +482,26 @@ Get all active stock items where `quantity_available <= min_stock_level`.
 
 **Query Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `per_page` | integer | 15 | Items per page |
+| Parameter  | Type    | Default | Description    |
+| ---------- | ------- | ------- | -------------- |
+| `per_page` | integer | 15      | Items per page |
 
 **Example Response:**
+
 ```json
 {
   "status": "success",
   "message": "Low stock items retrieved successfully",
   "data": {
-    "data": [ /* Low stock items */ ],
-    "meta": { /* pagination */ },
-    "links": { /* pagination links */ }
+    "data": [
+      /* Low stock items */
+    ],
+    "meta": {
+      /* pagination */
+    },
+    "links": {
+      /* pagination links */
+    }
   }
 }
 ```
@@ -470,14 +515,21 @@ Get all active stock items where `quantity_available <= min_stock_level`.
 Get all active stock items where `quantity_available <= 0`.
 
 **Example Response:**
+
 ```json
 {
   "status": "success",
   "message": "Out of stock items retrieved successfully",
   "data": {
-    "data": [ /* Out of stock items */ ],
-    "meta": { /* pagination */ },
-    "links": { /* pagination links */ }
+    "data": [
+      /* Out of stock items */
+    ],
+    "meta": {
+      /* pagination */
+    },
+    "links": {
+      /* pagination links */
+    }
   }
 }
 ```
@@ -501,12 +553,13 @@ Check if sufficient quantity is available for a given stock.
 
 **Validation Rules:**
 
-| Field | Type | Required | Rules |
-|-------|------|----------|-------|
-| `stock_id` | integer | Yes | Must exist in stocks table |
-| `quantity` | integer | Yes | Min 1 |
+| Field      | Type    | Required | Rules                      |
+| ---------- | ------- | -------- | -------------------------- |
+| `stock_id` | integer | Yes      | Must exist in stocks table |
+| `quantity` | integer | Yes      | Min 1                      |
 
 **Example Response (Available):**
+
 ```json
 {
   "status": "success",
@@ -514,13 +567,16 @@ Check if sufficient quantity is available for a given stock.
   "data": {
     "available": true,
     "quantity_available": 140,
-    "stock": { /* Stock resource */ },
+    "stock": {
+      /* Stock resource */
+    },
     "reason": null
   }
 }
 ```
 
 **Example Response (Not Available):**
+
 ```json
 {
   "status": "success",
@@ -528,7 +584,9 @@ Check if sufficient quantity is available for a given stock.
   "data": {
     "available": false,
     "quantity_available": 10,
-    "stock": { /* Stock resource */ },
+    "stock": {
+      /* Stock resource */
+    },
     "reason": "Insufficient quantity"
   }
 }
@@ -553,17 +611,20 @@ Manually adjust stock quantity (increase or decrease) with reason tracking.
 
 **Validation Rules:**
 
-| Field | Type | Required | Rules |
-|-------|------|----------|-------|
-| `quantity` | integer | Yes | Can be positive or negative |
-| `reason` | string | No | Max 255 chars |
+| Field      | Type    | Required | Rules                       |
+| ---------- | ------- | -------- | --------------------------- |
+| `quantity` | integer | Yes      | Can be positive or negative |
+| `reason`   | string  | No       | Max 255 chars               |
 
 **Example Response:**
+
 ```json
 {
   "status": "success",
   "message": "Stock quantity adjusted successfully",
-  "data": { /* Updated Stock resource */ }
+  "data": {
+    /* Updated Stock resource */
+  }
 }
 ```
 
@@ -590,14 +651,15 @@ Reserve stock for a cart or order. Automatically sets expiry time (default 15 mi
 
 **Validation Rules:**
 
-| Field | Type | Required | Rules |
-|-------|------|----------|-------|
-| `stock_id` | integer | Yes | Must exist in stocks table |
-| `quantity` | integer | Yes | Min 1 |
-| `reference_type` | string | Yes | `cart`, `order` |
-| `reference_id` | integer | Yes | ID of cart/order |
+| Field            | Type    | Required | Rules                      |
+| ---------------- | ------- | -------- | -------------------------- |
+| `stock_id`       | integer | Yes      | Must exist in stocks table |
+| `quantity`       | integer | Yes      | Min 1                      |
+| `reference_type` | string  | Yes      | `cart`, `order`            |
+| `reference_id`   | integer | Yes      | ID of cart/order           |
 
 **Example Response (201):**
+
 ```json
 {
   "status": "success",
@@ -614,7 +676,9 @@ Reserve stock for a cart or order. Automatically sets expiry time (default 15 mi
     "is_expired": false,
     "is_pending": true,
     "is_committed": false,
-    "stock": { /* Stock resource */ },
+    "stock": {
+      /* Stock resource */
+    },
     "created_at": "2024-12-16T10:00:00.000000Z",
     "updated_at": "2024-12-16T10:00:00.000000Z"
   }
@@ -622,6 +686,7 @@ Reserve stock for a cart or order. Automatically sets expiry time (default 15 mi
 ```
 
 **Error Response (422):**
+
 ```json
 {
   "status": "error",
@@ -641,11 +706,14 @@ Reserve stock for a cart or order. Automatically sets expiry time (default 15 mi
 Retrieve a single reservation by ID.
 
 **Example Response:**
+
 ```json
 {
   "status": "success",
   "message": "Reservation retrieved successfully",
-  "data": { /* StockReservation resource */ }
+  "data": {
+    /* StockReservation resource */
+  }
 }
 ```
 
@@ -667,16 +735,19 @@ Manually update reservation status.
 
 **Validation Rules:**
 
-| Field | Type | Required | Rules |
-|-------|------|----------|-------|
-| `status` | string | Yes | `pending`, `checking_out`, `committed`, `fulfilled`, `cancelled`, `expired` |
+| Field    | Type   | Required | Rules                                                                       |
+| -------- | ------ | -------- | --------------------------------------------------------------------------- |
+| `status` | string | Yes      | `pending`, `checking_out`, `committed`, `fulfilled`, `cancelled`, `expired` |
 
 **Example Response:**
+
 ```json
 {
   "status": "success",
   "message": "Reservation status updated successfully",
-  "data": { /* Updated reservation */ }
+  "data": {
+    /* Updated reservation */
+  }
 }
 ```
 
@@ -698,16 +769,19 @@ Extend the expiry time of a reservation.
 
 **Validation Rules:**
 
-| Field | Type | Required | Rules |
-|-------|------|----------|-------|
-| `minutes` | integer | Yes | Min 1, Max 60 |
+| Field     | Type    | Required | Rules         |
+| --------- | ------- | -------- | ------------- |
+| `minutes` | integer | Yes      | Min 1, Max 60 |
 
 **Example Response:**
+
 ```json
 {
   "status": "success",
   "message": "Reservation extended successfully",
-  "data": { /* Updated reservation */ }
+  "data": {
+    /* Updated reservation */
+  }
 }
 ```
 
@@ -720,6 +794,7 @@ Extend the expiry time of a reservation.
 Cancel a reservation and return quantity to available stock.
 
 **Example Response:**
+
 ```json
 {
   "status": "success",
@@ -729,6 +804,7 @@ Cancel a reservation and return quantity to available stock.
 ```
 
 **Effects:**
+
 - Sets reservation status to `release`
 - Decrements `stock.quantity_reserved` by reservation quantity
 - Makes quantity available again
@@ -742,15 +818,19 @@ Cancel a reservation and return quantity to available stock.
 Commit a reservation when order is placed and payment is confirmed.
 
 **Example Response:**
+
 ```json
 {
   "status": "success",
   "message": "Reservation committed successfully",
-  "data": { /* Updated reservation with status=committed */ }
+  "data": {
+    /* Updated reservation with status=committed */
+  }
 }
 ```
 
 **Effects:**
+
 - Changes status from `pending` to `committed`
 - Extends expiry to 3 days
 - Keeps `quantity_reserved` unchanged
@@ -764,15 +844,19 @@ Commit a reservation when order is placed and payment is confirmed.
 Fulfill a reservation when order is shipped (deducts from physical stock).
 
 **Example Response:**
+
 ```json
 {
   "status": "success",
   "message": "Reservation fulfilled successfully",
-  "data": { /* Updated reservation with status=fulfilled */ }
+  "data": {
+    /* Updated reservation with status=fulfilled */
+  }
 }
 ```
 
 **Effects:**
+
 - Changes status to `fulfilled`
 - Decrements `stock.quantity_on_hand` by reservation quantity
 - Decrements `stock.quantity_reserved` by reservation quantity
@@ -787,11 +871,14 @@ Fulfill a reservation when order is shipped (deducts from physical stock).
 Get all active reservations for a specific stock.
 
 **Example Response:**
+
 ```json
 {
   "status": "success",
   "message": "Active reservations retrieved successfully",
-  "data": [ /* Array of active reservations */ ]
+  "data": [
+    /* Array of active reservations */
+  ]
 }
 ```
 
@@ -805,22 +892,26 @@ Get all reservations for a specific cart or order.
 
 **Query Parameters:**
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `reference_type` | string | Yes | `cart`, `order` |
-| `reference_id` | integer | Yes | Cart/Order ID |
+| Parameter        | Type    | Required | Description     |
+| ---------------- | ------- | -------- | --------------- |
+| `reference_type` | string  | Yes      | `cart`, `order` |
+| `reference_id`   | integer | Yes      | Cart/Order ID   |
 
 **Example Request:**
+
 ```bash
 GET /api/v1/stock-reservations/by-reference?reference_type=cart&reference_id=12345
 ```
 
 **Example Response:**
+
 ```json
 {
   "status": "success",
   "message": "Reservations retrieved successfully",
-  "data": [ /* Array of reservations */ ]
+  "data": [
+    /* Array of reservations */
+  ]
 }
 ```
 
@@ -836,13 +927,14 @@ List all suppliers with pagination and filtering.
 
 **Query Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `per_page` | integer | 15 | Items per page |
-| `status` | string | - | Filter by status |
-| `active` | boolean | - | Filter active only |
+| Parameter  | Type    | Default | Description        |
+| ---------- | ------- | ------- | ------------------ |
+| `per_page` | integer | 15      | Items per page     |
+| `status`   | string  | -       | Filter by status   |
+| `active`   | boolean | -       | Filter active only |
 
 **Example Response:**
+
 ```json
 {
   "status": "success",
@@ -869,8 +961,12 @@ List all suppliers with pagination and filtering.
         "updated_at": "2024-12-16T10:00:00.000000Z"
       }
     ],
-    "meta": { /* pagination */ },
-    "links": { /* pagination links */ }
+    "meta": {
+      /* pagination */
+    },
+    "links": {
+      /* pagination links */
+    }
   }
 }
 ```
@@ -912,20 +1008,20 @@ Create a new supplier.
 
 **Validation Rules:**
 
-| Field | Type | Required | Rules |
-|-------|------|----------|-------|
-| `name` | string | Yes | Max 255 chars |
-| `contact_person` | string | No | Max 255 chars |
-| `email` | string | No | Valid email, max 255 chars |
-| `phone` | string | No | Max 50 chars |
-| `address` | string | No | - |
-| `city` | string | No | Max 100 chars |
-| `state` | string | No | Max 100 chars |
-| `country` | string | No | Max 100 chars |
-| `postal_code` | string | No | Max 20 chars |
-| `supplier_code` | string | Yes | Max 50 chars, unique |
-| `status` | string | No | `active`, `inactive` |
-| `notes` | string | No | - |
+| Field            | Type   | Required | Rules                      |
+| ---------------- | ------ | -------- | -------------------------- |
+| `name`           | string | Yes      | Max 255 chars              |
+| `contact_person` | string | No       | Max 255 chars              |
+| `email`          | string | No       | Valid email, max 255 chars |
+| `phone`          | string | No       | Max 50 chars               |
+| `address`        | string | No       | -                          |
+| `city`           | string | No       | Max 100 chars              |
+| `state`          | string | No       | Max 100 chars              |
+| `country`        | string | No       | Max 100 chars              |
+| `postal_code`    | string | No       | Max 20 chars               |
+| `supplier_code`  | string | Yes      | Max 50 chars, unique       |
+| `status`         | string | No       | `active`, `inactive`       |
+| `notes`          | string | No       | -                          |
 
 ---
 
@@ -944,6 +1040,7 @@ Update an existing supplier.
 Soft delete a supplier. Fails if supplier has active stocks.
 
 **Error Response (500):**
+
 ```json
 {
   "status": "error",
@@ -964,10 +1061,10 @@ Search suppliers by name, supplier code, or email.
 
 **Query Parameters:**
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `search` | string | Yes | Search query |
-| `per_page` | integer | No | Items per page |
+| Parameter  | Type    | Required | Description    |
+| ---------- | ------- | -------- | -------------- |
+| `search`   | string  | Yes      | Search query   |
+| `per_page` | integer | No       | Items per page |
 
 ---
 
@@ -981,12 +1078,13 @@ List all product variants (Size, Color, Storage, etc.).
 
 **Query Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `per_page` | integer | 15 | Items per page |
-| `search` | string | - | Search by name |
+| Parameter  | Type    | Default | Description    |
+| ---------- | ------- | ------- | -------------- |
+| `per_page` | integer | 15      | Items per page |
+| `search`   | string  | -       | Search by name |
 
 **Example Response:**
+
 ```json
 {
   "status": "success",
@@ -1000,12 +1098,12 @@ List all product variants (Size, Color, Storage, etc.).
           {
             "id": 1,
             "name": "Small (S)",
-            "meta": {"code": "S", "sort": 1}
+            "meta": { "code": "S", "sort": 1 }
           },
           {
             "id": 2,
             "name": "Medium (M)",
-            "meta": {"code": "M", "sort": 2}
+            "meta": { "code": "M", "sort": 2 }
           }
         ],
         "options_count": 6,
@@ -1013,8 +1111,12 @@ List all product variants (Size, Color, Storage, etc.).
         "updated_at": "2024-12-16T10:00:00.000000Z"
       }
     ],
-    "meta": { /* pagination */ },
-    "links": { /* pagination links */ }
+    "meta": {
+      /* pagination */
+    },
+    "links": {
+      /* pagination links */
+    }
   }
 }
 ```
@@ -1045,9 +1147,9 @@ Create a new variant type.
 
 **Validation Rules:**
 
-| Field | Type | Required | Rules |
-|-------|------|----------|-------|
-| `name` | string | Yes | Max 255 chars |
+| Field  | Type   | Required | Rules         |
+| ------ | ------ | -------- | ------------- |
+| `name` | string | Yes      | Max 255 chars |
 
 ---
 
@@ -1074,6 +1176,7 @@ Delete a variant. Fails if variant has associated options.
 Get all variation options for a specific variant.
 
 **Example Response:**
+
 ```json
 {
   "status": "success",
@@ -1083,7 +1186,7 @@ Get all variation options for a specific variant.
       "id": 1,
       "variant_id": 1,
       "name": "Small (S)",
-      "meta": {"code": "S", "sort": 1},
+      "meta": { "code": "S", "sort": 1 },
       "variant": {
         "id": 1,
         "name": "Size"
@@ -1127,11 +1230,11 @@ Create a new variation option.
 
 **Validation Rules:**
 
-| Field | Type | Required | Rules |
-|-------|------|----------|-------|
-| `variant_id` | integer | Yes | Must exist in variants table |
-| `name` | string | Yes | Max 255 chars |
-| `meta` | array/json | No | Additional metadata |
+| Field        | Type       | Required | Rules                        |
+| ------------ | ---------- | -------- | ---------------------------- |
+| `variant_id` | integer    | Yes      | Must exist in variants table |
+| `name`       | string     | Yes      | Max 255 chars                |
+| `meta`       | array/json | No       | Additional metadata          |
 
 ---
 
@@ -1178,7 +1281,7 @@ Delete a variation option. Fails if option is used in stocks.
 'stock_id' => 'required|integer|exists:stocks,id'
 'quantity' => 'required|integer|min:1'
 'reference_type' => 'required|string|in:cart,order'
-'reference_id' => 'required|integer'
+'reference_id' => 'required|string'
 ```
 
 ### Supplier Creation/Update
@@ -1222,11 +1325,21 @@ Delete a variation option. Fails if option is used in stocks.
   "status": "active",
   "is_available": true,
   "is_low_stock": false,
-  "product": { /* ProductResource */ },
-  "supplier": { /* SupplierResource */ },
-  "variation_options": [ /* VariationOptionResource[] */ ],
-  "image": { /* ProductImageResource */ },
-  "reservations": [ /* StockReservationResource[] */ ],
+  "product": {
+    /* ProductResource */
+  },
+  "supplier": {
+    /* SupplierResource */
+  },
+  "variation_options": [
+    /* VariationOptionResource[] */
+  ],
+  "image": {
+    /* ProductImageResource */
+  },
+  "reservations": [
+    /* StockReservationResource[] */
+  ],
   "created_at": "2024-12-16T10:00:00.000000Z",
   "updated_at": "2024-12-16T10:00:00.000000Z"
 }
@@ -1247,7 +1360,9 @@ Delete a variation option. Fails if option is used in stocks.
   "is_expired": false,
   "is_pending": true,
   "is_committed": false,
-  "stock": { /* StockResource */ },
+  "stock": {
+    /* StockResource */
+  },
   "created_at": "2024-12-16T10:00:00.000000Z",
   "updated_at": "2024-12-16T10:00:00.000000Z"
 }
@@ -1283,7 +1398,9 @@ Delete a variation option. Fails if option is used in stocks.
 {
   "id": 1,
   "name": "Size",
-  "variation_options": [ /* VariationOptionResource[] */ ],
+  "variation_options": [
+    /* VariationOptionResource[] */
+  ],
   "options_count": 6,
   "created_at": "2024-12-16T10:00:00.000000Z",
   "updated_at": "2024-12-16T10:00:00.000000Z"
@@ -1297,8 +1414,10 @@ Delete a variation option. Fails if option is used in stocks.
   "id": 1,
   "variant_id": 1,
   "name": "Small (S)",
-  "meta": {"code": "S", "sort": 1},
-  "variant": { /* VariantResource */ },
+  "meta": { "code": "S", "sort": 1 },
+  "variant": {
+    /* VariantResource */
+  },
   "stocks_count": 25,
   "created_at": "2024-12-16T10:00:00.000000Z",
   "updated_at": "2024-12-16T10:00:00.000000Z"
@@ -1313,14 +1432,15 @@ Delete a variation option. Fails if option is used in stocks.
 
 All list endpoints support pagination:
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `per_page` | integer | 15 | Items per page (max 100) |
-| `page` | integer | 1 | Current page number |
+| Parameter  | Type    | Default | Description              |
+| ---------- | ------- | ------- | ------------------------ |
+| `per_page` | integer | 15      | Items per page (max 100) |
+| `page`     | integer | 1       | Current page number      |
 
 ### Filter Parameters
 
 **Stock Endpoints:**
+
 - `product_id` - Filter by product
 - `supplier_id` - Filter by supplier
 - `status` - Filter by status
@@ -1330,10 +1450,12 @@ All list endpoints support pagination:
 - `in_stock` - Boolean, in stock items
 
 **Supplier Endpoints:**
+
 - `status` - Filter by status
 - `active` - Boolean, active suppliers only
 
 **Variant Endpoints:**
+
 - `search` - Search by variant name
 
 ---
@@ -1342,14 +1464,14 @@ All list endpoints support pagination:
 
 ### HTTP Status Codes
 
-| Code | Meaning | When Used |
-|------|---------|-----------|
-| 200 | OK | Successful request |
-| 201 | Created | Resource created successfully |
-| 400 | Bad Request | Invalid request parameters |
-| 404 | Not Found | Resource not found |
-| 422 | Unprocessable Entity | Validation failed |
-| 500 | Internal Server Error | Server error |
+| Code | Meaning               | When Used                     |
+| ---- | --------------------- | ----------------------------- |
+| 200  | OK                    | Successful request            |
+| 201  | Created               | Resource created successfully |
+| 400  | Bad Request           | Invalid request parameters    |
+| 404  | Not Found             | Resource not found            |
+| 422  | Unprocessable Entity  | Validation failed             |
+| 500  | Internal Server Error | Server error                  |
 
 ### Error Response Format
 
@@ -1358,9 +1480,7 @@ All list endpoints support pagination:
   "status": "error",
   "message": "User-friendly error message",
   "errors": {
-    "field_name": [
-      "Specific validation error"
-    ]
+    "field_name": ["Specific validation error"]
   }
 }
 ```
@@ -1368,6 +1488,7 @@ All list endpoints support pagination:
 ### Common Errors
 
 **Validation Error (422):**
+
 ```json
 {
   "message": "The sku has already been taken.",
@@ -1379,6 +1500,7 @@ All list endpoints support pagination:
 ```
 
 **Not Found Error (404):**
+
 ```json
 {
   "status": "error",
@@ -1388,6 +1510,7 @@ All list endpoints support pagination:
 ```
 
 **Business Logic Error (422):**
+
 ```json
 {
   "status": "error",
@@ -1413,23 +1536,23 @@ All list endpoints support pagination:
    └─ User adds item to cart
    └─ quantity_reserved += quantity
    └─ expires_at = now + 15 minutes
-   
+
 2. EXTEND (pending)
    └─ User updates cart
    └─ expires_at += additional minutes
-   
+
 3. COMMIT (committed)
    └─ User places order
    └─ Payment confirmed
    └─ expires_at = now + 3 days
    └─ quantity_reserved remains
-   
+
 4. FULFILL (fulfilled)
    └─ Order shipped
    └─ quantity_on_hand -= quantity
    └─ quantity_reserved -= quantity
    └─ expires_at = null
-   
+
 Alternative: RELEASE/CANCEL
    └─ Cart abandoned or order cancelled
    └─ quantity_reserved -= quantity
@@ -1449,6 +1572,7 @@ expired    expired      expired
 ### Auto-Expiry Behavior
 
 Reservations automatically expire based on status:
+
 - **pending** - Expires in 15 minutes (cart reservations)
 - **checking_out** - Expires in 30 minutes (checkout process)
 - **committed** - Expires in 3 days (order placed)
@@ -1462,14 +1586,14 @@ Reservations automatically expire based on status:
 
 ### Tables Overview
 
-| Table | Purpose | Soft Deletes |
-|-------|---------|--------------|
-| `suppliers` | Supplier/warehouse information | Yes |
-| `variants` | Variant types (Size, Color, etc.) | No |
-| `variation_options` | Specific options (Small, Red, 128GB) | No |
-| `stocks` | Stock records with quantities | Yes |
-| `stock_variant_options` | Pivot: Stock ↔ VariationOption | No |
-| `stock_reservations` | Temporary holds on stock | No |
+| Table                   | Purpose                              | Soft Deletes |
+| ----------------------- | ------------------------------------ | ------------ |
+| `suppliers`             | Supplier/warehouse information       | Yes          |
+| `variants`              | Variant types (Size, Color, etc.)    | No           |
+| `variation_options`     | Specific options (Small, Red, 128GB) | No           |
+| `stocks`                | Stock records with quantities        | Yes          |
+| `stock_variant_options` | Pivot: Stock ↔ VariationOption       | No           |
+| `stock_reservations`    | Temporary holds on stock             | No           |
 
 ### Relationships
 
@@ -1493,6 +1617,7 @@ Stock ──┬── (N:1) → Supplier
 ### Indexes
 
 **Performance Indexes:**
+
 - `stocks.sku` (unique)
 - `stocks.barcode`
 - `stocks.product_id`, `stocks.supplier_id`, `stocks.status`
@@ -1516,6 +1641,7 @@ php artisan db:seed --class=StockModuleSeeder
 ```
 
 **Sample Data Created:**
+
 - 10 suppliers
 - 5 variants with 29 options
 - Stock records for all products
@@ -1524,6 +1650,7 @@ php artisan db:seed --class=StockModuleSeeder
 ### Example API Calls
 
 **Create a reservation:**
+
 ```bash
 curl -X POST http://localhost/api/v1/stock-reservations/reserve \
   -H "Content-Type: application/json" \
@@ -1536,6 +1663,7 @@ curl -X POST http://localhost/api/v1/stock-reservations/reserve \
 ```
 
 **Check availability:**
+
 ```bash
 curl -X POST http://localhost/api/v1/stocks/check-availability \
   -H "Content-Type: application/json" \
@@ -1546,6 +1674,7 @@ curl -X POST http://localhost/api/v1/stocks/check-availability \
 ```
 
 **Get low stock items:**
+
 ```bash
 curl http://localhost/api/v1/stocks/low-stock?per_page=20
 ```
