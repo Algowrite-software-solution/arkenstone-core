@@ -16,7 +16,7 @@ return new class extends Migration {
             $table->integer('quantity')->default(0);
             $table->string('status')->default('pending');
             $table->string('reference_type')->nullable();
-            $table->unsignedBigInteger('reference_id')->nullable();
+            $table->string('reference_id')->nullable();
             $table->timestamp('expires_at')->nullable();
             $table->text('notes')->nullable();
             $table->timestamps();

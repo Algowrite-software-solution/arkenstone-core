@@ -27,7 +27,7 @@ class StockReservation extends Model
     protected $casts = [
         'stock_id' => 'integer',
         'quantity' => 'integer',
-        'reference_id' => 'integer',
+        'reference_id' => 'string',
         'expires_at' => 'datetime',
     ];
 
