@@ -34,6 +34,7 @@ class StoreStockRequest extends FormRequest
             'supplier_id' => ['required', 'integer', 'exists:suppliers,id'],
             'image_url_id' => ['nullable', 'integer', 'exists:product_images,id'],
             'status' => ['nullable', 'string', StockStatus::validationRule()],
+            'meta' => ['nullable', 'sometimes'], // json string
             'variation_option_ids' => ['nullable', 'array'],
             'variation_option_ids.*' => ['integer', 'exists:variation_options,id'],
         ];
