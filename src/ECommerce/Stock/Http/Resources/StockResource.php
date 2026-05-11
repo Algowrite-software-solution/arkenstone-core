@@ -31,6 +31,7 @@ class StockResource extends JsonResource
             'supplier_id' => $this->supplier_id,
             'image_url_id' => $this->image_url_id,
             'status' => $this->status,
+            'meta' => $this->meta,
             'is_available' => $this->isAvailable(),
             'is_low_stock' => $this->isLowStock(),
             'product' => new ProductResource($this->whenLoaded('product')),

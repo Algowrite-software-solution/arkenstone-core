@@ -33,6 +33,7 @@ class Stock extends Model
         'supplier_id',
         'image_url_id',
         'status',
+        'meta',
     ];
 
     protected $casts = [
