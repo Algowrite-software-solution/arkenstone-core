@@ -25,6 +25,7 @@ class StockController extends Controller
     {
         $perPage = $request->input('per_page', 15);
         $filters = $request->only([
+            'ids',
             'product_id',
             'supplier_id',
             'status',
@@ -35,9 +36,12 @@ class StockController extends Controller
         ]);
 
         $query = \Arkenstone\Core\ECommerce\Stock\Models\Stock::query()
-            ->with(['product', 'supplier', 'variationOptions', 'reservations', 'image']);
+            ->with(['product', 'supplier', 'variationOptions', 'reservations', 'image', 'product.images']);
 
         // Apply filters
+        if (isset($filters['ids'])) {
+            $query->whereIn('id', $filters['ids']);
+        }
         if (isset($filters['product_id'])) {
             $query->byProduct($filters['product_id']);
         }
