@@ -69,4 +69,26 @@ return [
         'per_page' => 100000,
         'order' => 'desc',
     ],
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Entity Record Lock Configuration
+    |--------------------------------------------------------------------------
+    */
+    'entity_record_lock' => [
+        // Prevent deleting category if it has products
+        'categories' => [
+            // 'cateogry 1',
+            // 'cateogry 2'
+        ],
+        'taxonomies' => [
+            // 'taxonomy 1',
+            // 'taxonomy 2'
+        ],
+        'taxonomy_types' => [
+            // 'type 1',
+            // 'type 2'
+        ],
+    ],
 ];

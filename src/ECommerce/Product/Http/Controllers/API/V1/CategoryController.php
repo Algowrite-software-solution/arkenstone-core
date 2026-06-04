@@ -10,6 +10,7 @@ use Arkenstone\Core\ECommerce\Product\Http\Resources\Collection\CategoryCollecti
 use Arkenstone\Core\ECommerce\Product\Models\Category;
 use Arkenstone\Core\ECommerce\Product\Services\CategoryService;
 use Arkenstone\Core\Helpers\ResponseProtocol;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -49,7 +50,7 @@ class CategoryController extends Controller
 
         $query->when(
             !($request->input('with_inactive') ?? false),
-        fn($q) => $q->where('is_active', true)
+            fn($q) => $q->where('is_active', true)
         );
 
         $categories = $query->orderBy($orderBy, $order)->paginate($perPage);
@@ -106,7 +107,11 @@ class CategoryController extends Controller
     {
         $validated = $request->validated();
 
-        $success = $this->categoryService->updateCategory($id, $validated);
+        try {
+            $success = $this->categoryService->updateCategory($id, $validated);
+        } catch (Exception $e) {
+            return ResponseProtocol::failed($e->getMessage(), 400);
+        }
 
         if (!$success) {
             return ResponseProtocol::failed(
@@ -129,7 +134,11 @@ class CategoryController extends Controller
      */
     public function destroy(int $id): JsonResponse
     {
-        $success = $this->categoryService->deleteCategory($id);
+        try {
+            $success = $this->categoryService->deleteCategory($id);
+        } catch (Exception $e) {
+            return ResponseProtocol::failed($e->getMessage(), 400);
+        }
 
         if (!$success) {
             return ResponseProtocol::failed(

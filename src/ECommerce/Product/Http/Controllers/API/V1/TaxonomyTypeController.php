@@ -8,6 +8,7 @@ use Arkenstone\Core\ECommerce\Product\Http\Resources\Collection\TaxonomyTypeColl
 use Arkenstone\Core\ECommerce\Product\Models\TaxonomyType;
 use Arkenstone\Core\ECommerce\Contracts\TaxonomyTypeServiceInterface;
 use Arkenstone\Core\Helpers\ResponseProtocol;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 
@@ -29,7 +30,7 @@ use Illuminate\Routing\Controller;
  */
 class TaxonomyTypeController extends Controller
 {
- 
+
 
     public function __construct(private TaxonomyTypeServiceInterface $taxonomyTypeService)
     {
@@ -53,8 +54,12 @@ class TaxonomyTypeController extends Controller
     // PUT/PATCH /taxonomy-types/{taxonomyType}
     public function update(UpdateTaxonomyTypeRequest $request, TaxonomyType $taxonomyType)
     {
-        $updated = $this->taxonomyTypeService->updateType($taxonomyType, $request->validated());
-        return ResponseProtocol::success(new TaxonomyTypeResource($updated), "Taxonomy type updated successfully.");
+        try {
+            $updated = $this->taxonomyTypeService->updateType($taxonomyType, $request->validated());
+            return ResponseProtocol::success(new TaxonomyTypeResource($updated), "Taxonomy type updated successfully.");
+        } catch (Exception $e) {
+            return ResponseProtocol::failed($e->getMessage(), 400);
+        }
     }
 
     // GET /taxonomy-types/{taxonomyType}
@@ -67,8 +72,11 @@ class TaxonomyTypeController extends Controller
     // DELETE /taxonomy-types/{taxonomyType}
     public function destroy(TaxonomyType $taxonomyType)
     {
-        $this->taxonomyTypeService->deleteType($taxonomyType);
-        return ResponseProtocol::success(null, "Taxonomy type deleted successfully.");
-
+        try {
+            $this->taxonomyTypeService->deleteType($taxonomyType);
+            return ResponseProtocol::success(null, "Taxonomy type deleted successfully.");
+        } catch (Exception $e) {
+            return ResponseProtocol::failed($e->getMessage(), 400);
+        }
     }
 }

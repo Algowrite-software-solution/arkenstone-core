@@ -4,6 +4,8 @@ namespace Arkenstone\Core\ECommerce\Product\Services;
 
 use Arkenstone\Core\ECommerce\Contracts\CategoryServiceInterface;
 use Arkenstone\Core\ECommerce\Product\Models\Category;
+use Arkenstone\Core\ECommerce\Product\Scopes\ActiveScope;
+use Exception;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Str;
 
@@ -28,7 +30,7 @@ class CategoryService implements CategoryServiceInterface
     {
         return Category::orderBy('created_at', $this->ORDER)->when(
             !($filters['with_inactive'] ?? false),
-        fn($q) => $q->where('is_active', true)
+            fn($q) => $q->where('is_active', true)
         )->get();
     }
 
@@ -57,7 +59,18 @@ class CategoryService implements CategoryServiceInterface
     {
         $data['slug'] ??= Str::slug($data['name']); // #TODO - temp fix
         $data['is_active'] ??= true; // #TODO - temp fix
-        $category = Category::find($id);
+
+        if (isset($data['with_inactive']) && $data['is_active'] == false) {
+            $category = Category::withoutGlobalScope(ActiveScope::class)->find($id);
+        } else {
+            $category = Category::find($id);
+        }
+
+        // prevent updating category if deletion blocked
+        $lockedCategories = config('arkenstone.entity_record_lock.categories', []);
+        if (in_array($category->name, $lockedCategories)) {
+            throw new Exception("Category Update Blocked for " . $category->name);
+        }
 
         if (!$category) {
             return false;
@@ -82,6 +95,12 @@ class CategoryService implements CategoryServiceInterface
     public function deleteCategory(int $id): bool
     {
         $category = Category::find($id);
+
+        // prevent deleting category if deletion blocked
+        $lockedCategories = config('arkenstone.entity_record_lock.categories', []);
+        if (in_array($category->name, $lockedCategories)) {
+            throw new Exception("Category Deletion Blocked for " . $category->name);
+        }
 
         if (!$category) {
             return false;
@@ -129,8 +148,7 @@ class CategoryService implements CategoryServiceInterface
             $storedPath = null;
             if ($useUniqueFilenames) {
                 $storedPath = $file->store($path, $disk);
-            }
-            else {
+            } else {
                 $originalName = $file->getClientOriginalName();
                 $storedPath = $file->storeAs($path, $originalName, $disk);
             }

@@ -4,6 +4,7 @@ namespace Arkenstone\Core\ECommerce\Product\Services;
 
 use Arkenstone\Core\ECommerce\Contracts\TaxonomyServiceInterface;
 use Arkenstone\Core\ECommerce\Product\Models\Taxonomy;
+use Exception;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -68,6 +69,13 @@ class TaxonomyService implements TaxonomyServiceInterface
 
     public function updateTaxonomy(Taxonomy $taxonomy, array $data): Taxonomy
     {
+
+        // prevent updating taxonomy if deletion blocked
+        $lockedTaxonomies = config('arkenstone.entity_record_lock.taxonomies', []);
+        if (in_array($taxonomy->name, $lockedTaxonomies)) {
+            throw new Exception("Taxonomy Update Blocked for " . $taxonomy->name);
+        }
+
         if (isset($data["slug"]) && !empty($data["slug"]) || (isset($data["name"]) && !empty($data["name"]))) {
             $data['slug'] = isset($data["slug"]) && !empty($data["slug"]) ? $data["slug"] : (isset($data["name"]) && !empty($data["name"]) ? Str::slug($data["name"]) : null);
         }
@@ -78,6 +86,12 @@ class TaxonomyService implements TaxonomyServiceInterface
 
     public function deleteTaxonomy(Taxonomy $taxonomy): bool
     {
+        // prevent deleting taxonomy if deletion blocked
+        $lockedTaxonomies = config('arkenstone.entity_record_lock.taxonomies', []);
+        if (in_array($taxonomy->name, $lockedTaxonomies)) {
+            throw new Exception("Taxonomy Deletion Blocked for " . $taxonomy->name);
+        }
+
         $taxonomy->delete();
         return true;
     }

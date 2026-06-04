@@ -9,6 +9,7 @@ use Arkenstone\Core\ECommerce\Product\Http\Resources\Collection\TaxonomyCollecti
 use Arkenstone\Core\ECommerce\Product\Models\Taxonomy;
 use Arkenstone\Core\ECommerce\Contracts\TaxonomyServiceInterface;
 use Arkenstone\Core\Helpers\ResponseProtocol;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -63,8 +64,12 @@ class TaxonomyController extends Controller
      */
     public function update(UpdateTaxonomyRequest $request, Taxonomy $taxonomy): JsonResponse
     {
-        $updated = $this->taxonomyService->updateTaxonomy($taxonomy, $request->validated());
-        return ResponseProtocol::success(new TaxonomyResource($updated), "Taxonomy updated successfully.");
+        try {
+            $updated = $this->taxonomyService->updateTaxonomy($taxonomy, $request->validated());
+            return ResponseProtocol::success(new TaxonomyResource($updated), "Taxonomy updated successfully.");
+        } catch (Exception $e) {
+            return ResponseProtocol::failed($e->getMessage(), 400);
+        }
     }
 
     /**
@@ -72,11 +77,15 @@ class TaxonomyController extends Controller
      */
     public function destroy(Taxonomy $taxonomy): JsonResponse
     {
-        $returnOfService = $this->taxonomyService->deleteTaxonomy($taxonomy);
-        if ($returnOfService) {
-            return ResponseProtocol::success(null, "Taxonomy and its children deleted successfully.");
-        } else {
-            return ResponseProtocol::failed("Failed to delete taxonomy.", 500);
+        try {
+            $returnOfService = $this->taxonomyService->deleteTaxonomy($taxonomy);
+            if ($returnOfService) {
+                return ResponseProtocol::success(null, "Taxonomy and its children deleted successfully.");
+            } else {
+                return ResponseProtocol::failed("Failed to delete taxonomy.", 500);
+            }
+        } catch (Exception $e) {
+            return ResponseProtocol::failed($e->getMessage(), 400);
         }
     }
 

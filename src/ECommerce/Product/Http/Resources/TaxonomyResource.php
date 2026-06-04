@@ -27,6 +27,7 @@ class TaxonomyResource extends JsonResource
             'taxonomy_type' => $this->whenLoaded('taxonomyType'),
             'parent' => new TaxonomyResource($this->whenLoaded('parent')),
             'children' => TaxonomyResource::collection($this->whenLoaded('children')),
+            'categories' => CategoryResource::collection($this->whenLoaded('categories')),
             'products_count' => $this->when($this->relationLoaded('products'), fn() => $this->products->count()),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),

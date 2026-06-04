@@ -24,6 +24,7 @@ class CategoryResource extends JsonResource
             'parent_id' => $this->parent_id,
             'is_active' => $this->is_active,
             'parent' => new CategoryResource($this->whenLoaded('parent')),
+            'taxonomies' => TaxonomyResource::collection($this->whenLoaded('taxonomies')),
             'children' => CategoryResource::collection($this->whenLoaded('children')),
             'products_count' => $this->when($this->relationLoaded('products'), fn() => $this->products->count()),
             'created_at' => $this->created_at?->toISOString(),
