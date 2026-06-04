@@ -5,6 +5,7 @@ namespace Arkenstone\Core\Tests\Unit\Services;
 use Arkenstone\Core\Tests\TestCase;
 use Arkenstone\Core\ECommerce\Product\Models\Category;
 use Arkenstone\Core\ECommerce\Product\Services\CategoryService;
+use Exception;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class CategoryServiceTest extends TestCase
@@ -122,4 +123,56 @@ class CategoryServiceTest extends TestCase
             $this->assertNull($category->parent_id);
         });
     }
+
+
+    /** @test */
+    public function it_can_get_category_by_id_with_inactive_categories()
+    {
+        $category = Category::factory()->create(['is_active' => false]);
+
+        // array of categories
+        $result = $this->categoryService->getAllCategories(['with_inactive' => true]);
+
+        $this->assertNotNull($result);
+        $this->assertContains($category->id, $result->pluck('id'));
+    }
+
+    /** @test */
+    public function it_can_get_category_by_id_without_inactive_categories()
+    {
+        $category = Category::factory()->create(['is_active' => false]);
+
+        $result = $this->categoryService->getAllCategories(['with_inactive' => false]);
+
+        $this->assertNotNull($result);
+        $this->assertNotContains($category->id, $result->pluck('id'));
+    }
+
+
+    /** @test */
+    public function it_can_update_inactive_category_if_with_inactive_is_true()
+    {
+        $category = Category::factory()->create(['is_active' => false]);
+
+        $result = $this->categoryService->updateCategory($category->id, [
+            'name' => 'New Name',
+            'with_inactive' => true
+        ]);
+
+        $this->assertTrue($result);
+        $category->refresh();
+        $this->assertEquals('New Name', $category->name);
+    }
+
+
+    /** @test */
+    public function it_can_not_delete_category_if_locked()
+    {
+        $category = Category::factory()->create(['name' => 'Locked Category']);
+
+        $this->assertThrows(function () use ($category) {
+            $this->categoryService->deleteCategory($category->id);
+        }, Exception::class, "Category Deletion Blocked for " . $category->name);
+    }
+
 }

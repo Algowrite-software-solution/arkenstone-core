@@ -6,6 +6,7 @@ use Arkenstone\Core\Tests\TestCase;
 use Arkenstone\Core\ECommerce\Product\Models\Taxonomy;
 use Arkenstone\Core\ECommerce\Product\Models\TaxonomyType;
 use Arkenstone\Core\ECommerce\Product\Services\TaxonomyService;
+use Exception;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class TaxonomyServiceTest extends TestCase
@@ -232,4 +233,46 @@ class TaxonomyServiceTest extends TestCase
             $this->assertTrue($taxonomy->is_active);
         });
     }
+
+
+    /** @test */
+    public function it_can_get_all_taxonomies_with_inactive_taxonomies()
+    {
+        Taxonomy::factory()->count(3)->create(['is_active' => true]);
+        Taxonomy::factory()->count(2)->create(['is_active' => false]);
+
+        $all = $this->taxonomyService->listTaxonomies(['with_inactive' => true]);
+
+        $this->assertCount(5, $all);
+        $all->each(function ($taxonomy) {
+            $this->assertTrue($taxonomy->is_active || !$taxonomy->is_active);
+        });
+    }
+
+    /** @test */
+    public function it_can_get_all_taxonomies_without_inactive_taxonomies()
+    {
+        Taxonomy::factory()->count(3)->create(['is_active' => true]);
+        Taxonomy::factory()->count(2)->create(['is_active' => false]);
+
+        $all = $this->taxonomyService->listTaxonomies();
+
+        $this->assertCount(3, $all);
+        $all->each(function ($taxonomy) {
+            $this->assertTrue($taxonomy->is_active);
+        });
+    }
+
+
+
+    /** @test */
+    public function it_can_not_delete_taxonomy_if_locked()
+    {
+        $taxonomy = Taxonomy::factory()->create(['name' => 'Locked Taxonomy']);
+
+        $this->assertThrows(function () use ($taxonomy) {
+            $this->taxonomyService->deleteTaxonomy($taxonomy);
+        }, Exception::class, "Taxonomy Deletion Blocked for " . $taxonomy->name);
+    }
+
 }

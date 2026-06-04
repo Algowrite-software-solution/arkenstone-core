@@ -26,11 +26,12 @@ class CategoryService implements CategoryServiceInterface
         return "Category Service";
     }
 
+    // get all categories . if with_inactive is passed return unscoped categories as well
     public function getAllCategories(array $filters = []): Collection
     {
         return Category::orderBy('created_at', $this->ORDER)->when(
-            !($filters['with_inactive'] ?? false),
-            fn($q) => $q->where('is_active', true)
+            ($filters['with_inactive'] ?? false),
+            fn($q) => $q->withoutGlobalScope(ActiveScope::class)
         )->get();
     }
 
@@ -57,13 +58,13 @@ class CategoryService implements CategoryServiceInterface
 
     public function updateCategory(int $id, array $data): bool
     {
-        if(isset($data['name']) && !empty($data['name'])) {
+        if (isset($data['name']) && !empty($data['name'])) {
             $data['slug'] ??= Str::slug($data['name']); // #TODO - temp fix
         }
-        
+
         $data['is_active'] ??= true; // #TODO - temp fix
 
-        if (isset($data['with_inactive']) && $data['is_active'] == false) {
+        if (isset($data['with_inactive'])) {
             $category = Category::withoutGlobalScope(ActiveScope::class)->find($id);
         } else {
             $category = Category::find($id);
@@ -71,7 +72,7 @@ class CategoryService implements CategoryServiceInterface
 
         // prevent updating category if deletion blocked
         $lockedCategories = config('arkenstone.entity_record_lock.categories', []);
-        if (in_array($category->name, $lockedCategories)) {
+        if ($category && isset($category->name) && in_array($category->name, $lockedCategories)) {
             throw new Exception("Category Update Blocked for " . $category->name);
         }
 

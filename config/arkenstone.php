@@ -79,15 +79,15 @@ return [
     'entity_record_lock' => [
         // Prevent deleting category if it has products
         'categories' => [
-            // 'cateogry 1',
+            'Locked Category',
             // 'cateogry 2'
         ],
         'taxonomies' => [
-            // 'taxonomy 1',
+            'Locked Taxonomy',
             // 'taxonomy 2'
         ],
         'taxonomy_types' => [
-            // 'type 1',
+            'Locked Taxonomy Type',
             // 'type 2'
         ],
     ],

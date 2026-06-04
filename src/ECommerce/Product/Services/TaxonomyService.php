@@ -4,6 +4,7 @@ namespace Arkenstone\Core\ECommerce\Product\Services;
 
 use Arkenstone\Core\ECommerce\Contracts\TaxonomyServiceInterface;
 use Arkenstone\Core\ECommerce\Product\Models\Taxonomy;
+use Arkenstone\Core\ECommerce\Product\Scopes\ActiveScope;
 use Exception;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -28,8 +29,8 @@ class TaxonomyService implements TaxonomyServiceInterface
         $q = Taxonomy::query()->with(['type', 'parent', 'children']);
 
         $q->when(
-            !($filters['with_inactive'] ?? false),
-            fn($q) => $q->where('is_active', true)
+            ($filters['with_inactive'] ?? false),
+            fn($q) => $q->withoutGlobalScope(ActiveScope::class)
         );
 
 
