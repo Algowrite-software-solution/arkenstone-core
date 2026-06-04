@@ -57,7 +57,10 @@ class CategoryService implements CategoryServiceInterface
 
     public function updateCategory(int $id, array $data): bool
     {
-        $data['slug'] ??= Str::slug($data['name']); // #TODO - temp fix
+        if(isset($data['name']) && !empty($data['name'])) {
+            $data['slug'] ??= Str::slug($data['name']); // #TODO - temp fix
+        }
+        
         $data['is_active'] ??= true; // #TODO - temp fix
 
         if (isset($data['with_inactive']) && $data['is_active'] == false) {
