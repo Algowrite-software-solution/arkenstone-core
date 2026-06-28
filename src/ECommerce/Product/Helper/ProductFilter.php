@@ -67,7 +67,7 @@ class ProductFilter
      */
     protected function is_active(string $value): void
     {
-        Log::info("is_active", [$value]);
+        // Log::info("is_active", [$value]);
         // convert to boolean either it is 0, 1, true, false or somerandome string
         $value = filter_var($value, FILTER_VALIDATE_BOOLEAN);
         $this->query->where('is_active', $value);
