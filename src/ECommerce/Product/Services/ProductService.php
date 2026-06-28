@@ -60,7 +60,7 @@ class ProductService implements ProductServiceInterface
    {
       $relationsToLoad = isset($filters['with']) & !empty($filters['with']) ? $filters['with'] : $this->allowedRelations;
 
-      Log::info("Relations to Load 123");
+      // Log::info("Relations to Load 123");
 
       $query = Product::query()->with($relationsToLoad)->when(
          !($filters['with_inactive'] ?? false),
